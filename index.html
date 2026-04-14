@@ -502,9 +502,9 @@ function renderGeral(uniq){
         return `<div class="hbar-row">
           <div class="hbar-lbl" title="${s.nome}">${s.nome}</div>
           <div class="hbar-track"><div class="hbar-fill" style="width:${w}%;background:${col}">${s.mediaIniciados>=8?fP(s.mediaIniciados):''}</div></div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;min-width:120px">
-            <div style="font-family:JetBrains Mono;font-size:13px;font-weight:700;color:${col}">${fP(s.mediaIniciados)} <span style="font-size:10px;color:var(--t3);font-weight:400">iniciou</span></div>
-            <div style="font-family:JetBrains Mono;font-size:11px;color:var(--t2)">${fP(s.media)} <span style="font-size:10px;color:var(--t3)">base toda</span></div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;min-width:140px;margin-left:8px">
+            <div style="font-family:JetBrains Mono;font-size:13px;font-weight:700;color:${col};line-height:1.2">${fP(s.mediaIniciados)} <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px">iniciou</span></div>
+            <div style="font-family:JetBrains Mono;font-size:11px;color:var(--t2);line-height:1.2">${fP(s.media)} <span style="font-size:10px;color:var(--t3);margin-left:4px">base toda</span></div>
           </div>
         </div>`;
       }).join('')}
@@ -556,14 +556,14 @@ function renderTrilhas(uniq){
     </div>`;
   }).join('');
   const resumo=`<div class="card" style="margin-bottom:18px"><h3>Média geral das trilhas</h3><div class="d">Média das ${TRILHAS.length} trilhas — mostramos os dois cortes para você comparar engajamento real vs. alcance da base.</div>
-    <div style="display:flex;gap:40px;flex-wrap:wrap;margin-top:14px">
-      <div>
-        <div style="font-family:JetBrains Mono;font-size:42px;font-weight:700;color:var(--accent);letter-spacing:-2px">${fP(mediaGeral)}</div>
-        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:4px">quem iniciou</div>
+    <div style="display:flex;gap:80px;flex-wrap:wrap;margin-top:20px">
+      <div style="min-width:200px">
+        <div style="font-family:JetBrains Mono;font-size:42px;font-weight:700;color:var(--accent);letter-spacing:-2px;line-height:1">${fP(mediaGeral)}</div>
+        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:10px">quem iniciou</div>
       </div>
-      <div>
-        <div style="font-family:JetBrains Mono;font-size:42px;font-weight:700;color:var(--t2);letter-spacing:-2px">${fP(mediaGeralBase)}</div>
-        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:4px">base toda (${fN(baseTotal)} alunos)</div>
+      <div style="min-width:200px">
+        <div style="font-family:JetBrains Mono;font-size:42px;font-weight:700;color:var(--t2);letter-spacing:-2px;line-height:1">${fP(mediaGeralBase)}</div>
+        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:10px">base toda (${fN(baseTotal)} alunos)</div>
       </div>
     </div>
   </div>`;
