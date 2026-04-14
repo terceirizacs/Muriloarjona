@@ -163,6 +163,12 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto}
 .prog-bar{flex:1;border-radius:5px 5px 0 0;position:relative;transition:all .3s;cursor:default;min-height:4px}
 .prog-bar:hover{filter:brightness(1.3)}
 .prog-pct{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:10px;font-family:'JetBrains Mono';font-weight:600;color:var(--t1);white-space:nowrap}
+.chart-tooltip{position:fixed;background:rgba(15,23,42,.95);color:#f1f5f9;padding:12px 16px;border-radius:12px;font-size:13px;pointer-events:none;z-index:9999;box-shadow:0 12px 40px rgba(0,0,0,.5);border:1px solid rgba(139,124,247,.3);backdrop-filter:blur(10px);max-width:280px;line-height:1.5;opacity:0;transition:opacity .15s}
+.chart-tooltip.show{opacity:1}
+.chart-tooltip .tt-title{font-weight:700;font-size:14px;margin-bottom:4px;color:var(--accent)}
+.chart-tooltip .tt-row{display:flex;justify-content:space-between;gap:12px}
+.chart-tooltip .tt-label{color:#94a3b8}
+.chart-tooltip .tt-value{font-weight:600;font-family:'JetBrains Mono';color:#f1f5f9}
 /* Renovação — distribuição */
 .ft-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--track-bg);flex-wrap:wrap}
 @media(min-width:768px){.ft-row{gap:14px;padding:14px 0;flex-wrap:nowrap}}
@@ -285,6 +291,12 @@ const fN=n=>n.toLocaleString('pt-BR');
 const fP=n=>(n||0).toFixed(1).replace('.',',')+'%';
 const avg=a=>a.length?a.reduce((s,v)=>s+v,0)/a.length:0;
 function norm(s){return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
+
+// Tooltip global
+let _tip=null;
+function initTip(){if(!_tip){_tip=document.createElement('div');_tip.className='chart-tooltip';document.body.appendChild(_tip);}}
+function showTip(e,html){initTip();_tip.innerHTML=html;_tip.classList.add('show');const x=Math.min(e.clientX+14,window.innerWidth-300);const y=Math.max(e.clientY-60,8);_tip.style.left=x+'px';_tip.style.top=y+'px';}
+function hideTip(){if(_tip)_tip.classList.remove('show');}
 
 function splitTags(s){ if(!s) return []; return String(s).split(',').map(t=>t.trim()).filter(Boolean); }
 
@@ -582,8 +594,9 @@ function renderTrilhas(uniq){
   const shortName=n=>{ if(!n) return ''; n=n.replace(/^Financiamento /,'Fin.').replace(/MARKETING/,'Mkt').replace(/TRÁFEGO/,'Tráfego').replace(/ COM .+$/,''); return n.length>22?n.slice(0,20)+'…':n; };
   const bars=chartSorted.map((s,i)=>{
     const col=barPalette[i%barPalette.length];
-    const h=Math.max(s.mediaIniciados,1.5); // altura percentual direta (0-100)
-    return `<div class="prog-bar" style="height:${h}%;background:${col}" title="${s.nome}: ${fP(s.mediaIniciados)} (${fN(s.iniciados)} alunos)"><span class="prog-pct">${fP(s.mediaIniciados)}</span></div>`;
+    const h=Math.max(s.mediaIniciados,1.5);
+    const tip=`<div class=tt-title>${s.nome.replace(/"/g,'&quot;').replace(/'/g,"\\'")}</div><div class=tt-row><span class=tt-label>Alunos do produto:</span><span class=tt-value>${fN(s.iniciados)}</span></div><div class=tt-row><span class=tt-label>Média do produto:</span><span class=tt-value>${fP(s.mediaIniciados)}</span></div><div class=tt-row><span class=tt-label>Acima de 50%:</span><span class=tt-value>${fN(s.alto)} (${fP(s.pctAlto)})</span></div><div class=tt-row><span class=tt-label>Abaixo de 10%:</span><span class=tt-value>${fN(s.baixo)} (${fP(s.pctBaixo)})</span></div>`;
+    return `<div class="prog-bar" style="height:${h}%;background:${col}" onmouseenter="showTip(event,'${tip}')" onmousemove="showTip(event,'${tip}')" onmouseleave="hideTip()"><span class="prog-pct">${fP(s.mediaIniciados)}</span></div>`;
   }).join('');
   const labels=chartSorted.map(s=>`<div class="prog-lbl" title="${s.nome}">${shortName(s.nome)}</div>`).join('');
 
