@@ -418,14 +418,18 @@ function switchTab(t,b){document.querySelectorAll('.tab-btn').forEach(x=>x.class
 // ========== CÁLCULOS POR TRILHA ==========
 function trilhaStats(rows){
   return TRILHAS.map(name=>{
-    let soma=0,cnt=0,iniciados=0,zeros=0,max=0;
+    let soma=0,cnt=0,iniciados=0,zeros=0,max=0,alto=0,medio=0,baixo=0;
     rows.forEach(r=>{
       const v=r.trilhas?r.trilhas[name]:null;
       if(typeof v==='number'){
         cnt++;
         soma+=v;
-        if(v>0) iniciados++;
-        else zeros++;
+        if(v>0){
+          iniciados++;
+          if(v>=50) alto++;
+          else if(v>=10) medio++;
+          else baixo++;
+        } else zeros++;
         if(v>max) max=v;
       }
     });
@@ -437,8 +441,13 @@ function trilhaStats(rows){
       zeros:zeros,
       total:cnt,
       max:max,
+      alto:alto,
+      medio:medio,
+      baixo:baixo,
       pctZero: cnt? (zeros/cnt*100):0,
-      pctIniciou: cnt? (iniciados/cnt*100):0
+      pctIniciou: cnt? (iniciados/cnt*100):0,
+      pctAlto: iniciados? (alto/iniciados*100):0,
+      pctBaixo: iniciados? (baixo/iniciados*100):0
     };
   });
 }
@@ -549,21 +558,21 @@ function renderTrilhas(uniq){
       <div class="trilha-bar"><div class="trilha-bar-fill" style="width:${Math.max(s.mediaIniciados,0.5)}%;background:${color}"></div></div>
       <div class="trilha-stats">
         <div class="trilha-stat"><div class="trilha-stat-l">Alunos do produto</div><div class="trilha-stat-v">${fN(s.iniciados)}</div></div>
-        <div class="trilha-stat"><div class="trilha-stat-l">% da base geral</div><div class="trilha-stat-v">${fP(baseTotal?s.iniciados/baseTotal*100:0)}</div></div>
         <div class="trilha-stat"><div class="trilha-stat-l">Média do produto</div><div class="trilha-stat-v">${fP(s.mediaIniciados)}</div></div>
-        <div class="trilha-stat"><div class="trilha-stat-l">Base geral (filtro)</div><div class="trilha-stat-v">${fN(baseTotal)}</div></div>
+        <div class="trilha-stat"><div class="trilha-stat-l">Acima de 50%</div><div class="trilha-stat-v" style="color:var(--green)">${fN(s.alto)} <span style="font-size:10px;color:var(--t3);font-weight:400">(${fP(s.pctAlto)})</span></div></div>
+        <div class="trilha-stat"><div class="trilha-stat-l">Abaixo de 10%</div><div class="trilha-stat-v" style="color:var(--orange)">${fN(s.baixo)} <span style="font-size:10px;color:var(--t3);font-weight:400">(${fP(s.pctBaixo)})</span></div></div>
       </div>
     </div>`;
   }).join('');
-  const resumo=`<div class="card" style="margin-bottom:18px"><h3>Média geral das trilhas</h3><div class="d">Média das ${TRILHAS.length} trilhas considerando cada produto com a sua própria base (alunos que efetivamente têm aquela trilha).</div>
+  const resumo=`<div class="card" style="margin-bottom:18px"><h3>Média geral das trilhas</h3><div class="d">Média das ${TRILHAS.length} trilhas — cada produto usa apenas os alunos que efetivamente o têm como sua base.</div>
     <div style="display:flex;gap:80px;flex-wrap:wrap;margin-top:20px">
       <div style="min-width:200px">
         <div style="font-family:JetBrains Mono;font-size:42px;font-weight:700;color:var(--accent);letter-spacing:-2px;line-height:1">${fP(mediaGeral)}</div>
-        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:10px">consumo médio</div>
+        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:10px">consumo médio dos produtos</div>
       </div>
       <div style="min-width:200px">
-        <div style="font-family:JetBrains Mono;font-size:42px;font-weight:700;color:var(--t2);letter-spacing:-2px;line-height:1">${fN(baseTotal)}</div>
-        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:10px">base geral (filtro)</div>
+        <div style="font-family:JetBrains Mono;font-size:42px;font-weight:700;color:var(--t2);letter-spacing:-2px;line-height:1">${fN(totalAlunosProdutos)}</div>
+        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:10px">total de matrículas nos produtos</div>
       </div>
     </div>
   </div>`;
