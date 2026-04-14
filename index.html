@@ -241,7 +241,7 @@ async function loadData(){
     if(D.error) throw new Error(D.error);
     TRILHAS=D.trilhaNames||[];
     NOW=D.todayMs||Date.now();
-    ROWS=dedupeRows(D.rows||[]);
+    ROWS=D.rows||[];
     initDate();
     buildFilters();
     renderAll(ROWS);
@@ -457,7 +457,7 @@ function renderGeral(rows){
   const pctZeroAbs=total?zeroAbs/total*100:0;
 
   const kpis=`<div class="kpis">
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total de Alunos (únicos)</div><div class="kpi-v">${fN(total)}</div><div class="kpi-s">${fN(ativos)} ativos · ${fN(inat)} inativos · ${fN(nunca)} nunca acessou</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total de Alunos</div><div class="kpi-v">${fN(total)}</div><div class="kpi-s">${fN(ativos)} ativos · ${fN(inat)} inativos · ${fN(nunca)} nunca acessou</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">Média Geral de Consumo</div><div class="kpi-v">${fP(media)}</div><div class="kpi-s">Média do progresso nas ${TRILHAS.length} trilhas</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--red))"></div><div class="kpi-l">Inativos +30 dias</div><div class="kpi-v">${fP(pctInat)}</div><div class="kpi-s">${fN(inat)} alunos — já acessaram, mas há mais de 30 dias</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Nunca Acessaram</div><div class="kpi-v">${fP(pctNunca)}</div><div class="kpi-s">${fN(nunca)} alunos — nenhum primeiro acesso registrado</div></div>
