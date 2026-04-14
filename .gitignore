@@ -1,0 +1,5 @@
+.DS_Store
+script.txt
+*.xlsx
+*.xls
+*.csv
