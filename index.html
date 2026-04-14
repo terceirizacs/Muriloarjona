@@ -489,12 +489,12 @@ function renderGeral(uniq){
     <div class="lg-item"><span class="lg-dot" style="background:var(--red)"></span><strong>Nunca acessou:</strong>&nbsp;comprou mas ainda não fez o primeiro login na plataforma</div>
   </div>`;
 
-  // Ranking de trilhas (hbar) — mostra os dois números: quem iniciou + base toda (filtrada)
+  // Ranking de trilhas (hbar) — média do produto + alunos do produto
   const sortedStats=[...stats].sort((a,b)=>b.mediaIniciados-a.mediaIniciados);
   const maxMedia=Math.max(...sortedStats.map(s=>s.mediaIniciados),1);
   const palette=['#8b7cf7','#a78bfa','#2dd4bf','#34d399','#38bdf8','#22d3ee','#fbbf24','#fb923c','#f472b6','#f87171','#a78bfa','#8b7cf7','#2dd4bf','#34d399'];
   const rank=`<div class="sec">Ranking por trilha</div>
-    <div class="card"><h3>Média de consumo por trilha</h3><div class="d">Barra principal = média de <strong>quem iniciou</strong> a trilha (>0%). Na direita também mostramos a média sobre a <strong>base toda</strong> (${fN(total)} alunos ${'' /*selecionados*/}nesta seleção).</div>
+    <div class="card"><h3>Média de consumo por trilha</h3><div class="d">Cada produto tem a sua própria base — mostramos quantos alunos efetivamente <strong>têm o produto</strong> (iniciaram a trilha) e o consumo médio desses alunos.</div>
     <div class="hbar-area">
       ${sortedStats.map((s,i)=>{
         const w=Math.max(s.mediaIniciados/maxMedia*100,0.5);
@@ -502,9 +502,9 @@ function renderGeral(uniq){
         return `<div class="hbar-row">
           <div class="hbar-lbl" title="${s.nome}">${s.nome}</div>
           <div class="hbar-track"><div class="hbar-fill" style="width:${w}%;background:${col}">${s.mediaIniciados>=8?fP(s.mediaIniciados):''}</div></div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;min-width:140px;margin-left:8px">
-            <div style="font-family:JetBrains Mono;font-size:13px;font-weight:700;color:${col};line-height:1.2">${fP(s.mediaIniciados)} <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px">iniciou</span></div>
-            <div style="font-family:JetBrains Mono;font-size:11px;color:var(--t2);line-height:1.2">${fP(s.media)} <span style="font-size:10px;color:var(--t3);margin-left:4px">base toda</span></div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;min-width:150px;margin-left:8px">
+            <div style="font-family:JetBrains Mono;font-size:14px;font-weight:700;color:${col};line-height:1.2">${fP(s.mediaIniciados)} <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px">média</span></div>
+            <div style="font-family:JetBrains Mono;font-size:12px;color:var(--t2);line-height:1.2">${fN(s.iniciados)} <span style="font-size:10px;color:var(--t3);margin-left:4px">alunos do produto</span></div>
           </div>
         </div>`;
       }).join('')}
@@ -531,39 +531,39 @@ function renderTrilhas(uniq){
   const palette=['var(--accent)','var(--teal)','var(--green)','var(--sky)','var(--cyan)','var(--gold)','var(--orange)','var(--pink)','var(--red)','var(--a2)'];
   const mediaGeral=avg(stats.filter(s=>s.iniciados>0).map(s=>s.mediaIniciados));
   const baseTotal=uniq.length;
-  const mediaGeralBase=avg(stats.map(s=>s.media));
+  const totalAlunosProdutos=stats.reduce((s,t)=>s+t.iniciados,0);
   const cards=sorted.map((s,i)=>{
     const color=palette[i%palette.length];
     return `<div class="trilha-card">
       <div class="trilha-name">${s.nome}</div>
-      <div style="display:flex;align-items:flex-end;gap:14px;margin-bottom:6px">
+      <div style="display:flex;align-items:flex-end;gap:18px;margin-bottom:6px">
         <div>
           <div class="trilha-media" style="color:${color}">${fP(s.mediaIniciados)}</div>
-          <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">quem iniciou</div>
+          <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-top:4px">média do produto</div>
         </div>
         <div style="padding-bottom:4px">
-          <div style="font-family:JetBrains Mono;font-size:18px;font-weight:700;color:var(--t2);letter-spacing:-.5px">${fP(s.media)}</div>
-          <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">base toda</div>
+          <div style="font-family:JetBrains Mono;font-size:22px;font-weight:700;color:var(--t2);letter-spacing:-.5px">${fN(s.iniciados)}</div>
+          <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-top:4px">alunos do produto</div>
         </div>
       </div>
       <div class="trilha-bar"><div class="trilha-bar-fill" style="width:${Math.max(s.mediaIniciados,0.5)}%;background:${color}"></div></div>
       <div class="trilha-stats">
-        <div class="trilha-stat"><div class="trilha-stat-l">Alunos que iniciaram</div><div class="trilha-stat-v">${fN(s.iniciados)}</div></div>
-        <div class="trilha-stat"><div class="trilha-stat-l">Em 0% (não iniciou)</div><div class="trilha-stat-v">${fN(s.zeros)}</div></div>
-        <div class="trilha-stat"><div class="trilha-stat-l">% que iniciou</div><div class="trilha-stat-v">${fP(s.pctIniciou)}</div></div>
-        <div class="trilha-stat"><div class="trilha-stat-l">Base analisada</div><div class="trilha-stat-v">${fN(baseTotal)}</div></div>
+        <div class="trilha-stat"><div class="trilha-stat-l">Alunos do produto</div><div class="trilha-stat-v">${fN(s.iniciados)}</div></div>
+        <div class="trilha-stat"><div class="trilha-stat-l">% da base geral</div><div class="trilha-stat-v">${fP(baseTotal?s.iniciados/baseTotal*100:0)}</div></div>
+        <div class="trilha-stat"><div class="trilha-stat-l">Média do produto</div><div class="trilha-stat-v">${fP(s.mediaIniciados)}</div></div>
+        <div class="trilha-stat"><div class="trilha-stat-l">Base geral (filtro)</div><div class="trilha-stat-v">${fN(baseTotal)}</div></div>
       </div>
     </div>`;
   }).join('');
-  const resumo=`<div class="card" style="margin-bottom:18px"><h3>Média geral das trilhas</h3><div class="d">Média das ${TRILHAS.length} trilhas — mostramos os dois cortes para você comparar engajamento real vs. alcance da base.</div>
+  const resumo=`<div class="card" style="margin-bottom:18px"><h3>Média geral das trilhas</h3><div class="d">Média das ${TRILHAS.length} trilhas considerando cada produto com a sua própria base (alunos que efetivamente têm aquela trilha).</div>
     <div style="display:flex;gap:80px;flex-wrap:wrap;margin-top:20px">
       <div style="min-width:200px">
         <div style="font-family:JetBrains Mono;font-size:42px;font-weight:700;color:var(--accent);letter-spacing:-2px;line-height:1">${fP(mediaGeral)}</div>
-        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:10px">quem iniciou</div>
+        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:10px">consumo médio</div>
       </div>
       <div style="min-width:200px">
-        <div style="font-family:JetBrains Mono;font-size:42px;font-weight:700;color:var(--t2);letter-spacing:-2px;line-height:1">${fP(mediaGeralBase)}</div>
-        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:10px">base toda (${fN(baseTotal)} alunos)</div>
+        <div style="font-family:JetBrains Mono;font-size:42px;font-weight:700;color:var(--t2);letter-spacing:-2px;line-height:1">${fN(baseTotal)}</div>
+        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:10px">base geral (filtro)</div>
       </div>
     </div>
   </div>`;
