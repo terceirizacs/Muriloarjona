@@ -404,6 +404,7 @@ function getFiltered(){
 
 function applyFilters(){
   const rows=getFiltered(), tags=[];
+  const uniqCount=dedupeRows(rows).length;
   getMS('fTurma').forEach(v=>tags.push(v));
   getMS('fProduto').forEach(v=>tags.push(v.length>24?v.slice(0,22)+'…':v));
   getMS('fStatus').forEach(v=>tags.push(v));
@@ -411,7 +412,7 @@ function applyFilters(){
   if(document.getElementById('fAte').value) tags.push('Até: '+document.getElementById('fAte').value);
   const a=document.getElementById('tagsArea');
   a.innerHTML=tags.length
-    ? tags.map(t=>'<div class="filter-tag">'+t+'</div>').join('')+'<span class="results-badge">→ '+fN(rows.length)+' alunos</span>'
+    ? tags.map(t=>'<div class="filter-tag">'+t+'</div>').join('')+'<span class="results-badge">→ '+fN(uniqCount)+' alunos únicos</span>'
     : '<div class="filter-tag neutral">Nenhum filtro ativo</div>';
   renderAll(rows);
 }
