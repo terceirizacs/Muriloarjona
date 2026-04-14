@@ -475,14 +475,14 @@ function renderGeral(uniq){
     <div class="lg-item"><span class="lg-dot" style="background:var(--red)"></span><strong>Nunca acessou:</strong>&nbsp;comprou mas ainda não fez o primeiro login na plataforma</div>
   </div>`;
 
-  // Ranking de trilhas (hbar)
-  const sortedStats=[...stats].sort((a,b)=>b.media-a.media);
-  const maxMedia=Math.max(...sortedStats.map(s=>s.media),1);
+  // Ranking de trilhas (hbar) — usa média dos alunos que iniciaram a trilha
+  const sortedStats=[...stats].sort((a,b)=>b.mediaIniciados-a.mediaIniciados);
+  const maxMedia=Math.max(...sortedStats.map(s=>s.mediaIniciados),1);
   const palette=['#8b7cf7','#a78bfa','#2dd4bf','#34d399','#38bdf8','#22d3ee','#fbbf24','#fb923c','#f472b6','#f87171','#a78bfa','#8b7cf7','#2dd4bf','#34d399'];
-  const rank=`<div class="sec">Ranking por trilha — média de consumo</div>
-    <div class="card"><h3>Média de consumo por trilha</h3><div class="d">Percentual médio de progresso considerando todos os alunos (únicos). Quanto maior, mais a trilha está sendo consumida.</div>
+  const rank=`<div class="sec">Ranking por trilha — consumo de quem iniciou</div>
+    <div class="card"><h3>Média de consumo por trilha</h3><div class="d">Média de progresso considerando apenas os alunos que <strong>iniciaram</strong> a trilha (>0%). Reflete o engajamento real de quem começou.</div>
     <div class="hbar-area">
-      ${sortedStats.map((s,i)=>{const w=Math.max(s.media/maxMedia*100,0.5);return `<div class="hbar-row"><div class="hbar-lbl" title="${s.nome}">${s.nome}</div><div class="hbar-track"><div class="hbar-fill" style="width:${w}%;background:${palette[i%palette.length]}">${s.media>=5?fP(s.media):''}</div></div><div class="hbar-pct">${fP(s.media)}</div></div>`;}).join('')}
+      ${sortedStats.map((s,i)=>{const w=Math.max(s.mediaIniciados/maxMedia*100,0.5);return `<div class="hbar-row"><div class="hbar-lbl" title="${s.nome}">${s.nome}</div><div class="hbar-track"><div class="hbar-fill" style="width:${w}%;background:${palette[i%palette.length]}">${s.mediaIniciados>=8?fP(s.mediaIniciados):''}</div></div><div class="hbar-pct">${fP(s.mediaIniciados)}</div></div>`;}).join('')}
     </div></div>`;
 
   // Insights — texto reescrito para ficar claro
@@ -502,24 +502,25 @@ function renderGeral(uniq){
 // ========== RENDER: TRILHAS ==========
 function renderTrilhas(uniq){
   const stats=trilhaStats(uniq);
-  const sorted=[...stats].sort((a,b)=>b.media-a.media);
+  const sorted=[...stats].sort((a,b)=>b.mediaIniciados-a.mediaIniciados);
   const palette=['var(--accent)','var(--teal)','var(--green)','var(--sky)','var(--cyan)','var(--gold)','var(--orange)','var(--pink)','var(--red)','var(--a2)'];
-  const mediaGeral=avg(stats.map(s=>s.media));
+  const mediaGeral=avg(stats.filter(s=>s.iniciados>0).map(s=>s.mediaIniciados));
   const cards=sorted.map((s,i)=>{
     const color=palette[i%palette.length];
     return `<div class="trilha-card">
       <div class="trilha-name">${s.nome}</div>
-      <div class="trilha-media" style="color:${color}">${fP(s.media)}</div>
-      <div class="trilha-bar"><div class="trilha-bar-fill" style="width:${Math.max(s.media,0.5)}%;background:${color}"></div></div>
+      <div class="trilha-media" style="color:${color}">${fP(s.mediaIniciados)}</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:-4px;margin-bottom:8px">consumo médio de quem iniciou</div>
+      <div class="trilha-bar"><div class="trilha-bar-fill" style="width:${Math.max(s.mediaIniciados,0.5)}%;background:${color}"></div></div>
       <div class="trilha-stats">
         <div class="trilha-stat"><div class="trilha-stat-l">Alunos que iniciaram</div><div class="trilha-stat-v">${fN(s.iniciados)}</div></div>
         <div class="trilha-stat"><div class="trilha-stat-l">Em 0% (não iniciou)</div><div class="trilha-stat-v">${fN(s.zeros)}</div></div>
         <div class="trilha-stat"><div class="trilha-stat-l">% que iniciou</div><div class="trilha-stat-v">${fP(s.pctIniciou)}</div></div>
-        <div class="trilha-stat"><div class="trilha-stat-l">Média de quem iniciou</div><div class="trilha-stat-v">${fP(s.mediaIniciados)}</div></div>
+        <div class="trilha-stat"><div class="trilha-stat-l">Média sobre todos</div><div class="trilha-stat-v">${fP(s.media)}</div></div>
       </div>
     </div>`;
   }).join('');
-  const resumo=`<div class="card" style="margin-bottom:18px"><h3>Média geral de todas as trilhas</h3><div class="d">Média aritmética do consumo das ${TRILHAS.length} trilhas nesta seleção.</div><div style="font-family:JetBrains Mono;font-size:42px;font-weight:700;color:var(--accent);letter-spacing:-2px">${fP(mediaGeral)}</div></div>`;
+  const resumo=`<div class="card" style="margin-bottom:18px"><h3>Média geral das trilhas (considerando quem iniciou)</h3><div class="d">Média do consumo das ${TRILHAS.length} trilhas, contando apenas os alunos que efetivamente iniciaram cada uma.</div><div style="font-family:JetBrains Mono;font-size:42px;font-weight:700;color:var(--accent);letter-spacing:-2px">${fP(mediaGeral)}</div></div>`;
   document.getElementById('cTrilhas').innerHTML=`<div class="sec">Detalhamento por trilha</div>${resumo}<div class="trilha-grid">${cards}</div>`;
 }
 
