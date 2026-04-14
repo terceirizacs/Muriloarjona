@@ -432,11 +432,15 @@ function trilhaStats(rows){
 }
 
 // ========== RENDER: VISÃO GERAL ==========
-function renderAll(rows){ renderGeral(rows); renderTrilhas(rows); renderAlunos(rows); }
-
-function renderGeral(rows){
-  // KPIs globais usam alunos ÚNICOS (1 linha por email) para não contar duplicados
+// Todo o dashboard trabalha com alunos ÚNICOS (dedupe por email).
+function renderAll(rows){
   const uniq=dedupeRows(rows);
+  renderGeral(uniq);
+  renderTrilhas(uniq);
+  renderAlunosList(uniq);
+}
+
+function renderGeral(uniq){
   const total=uniq.length;
   const totals=uniq.map(r=>r.total).filter(v=>typeof v==='number');
   const media=avg(totals);
@@ -445,7 +449,7 @@ function renderGeral(rows){
   const pctInat=total?inat/total*100:0;
   const pctNunca=total?nunca/total*100:0;
   const pctAt=total?ativos/total*100:0;
-  const stats=trilhaStats(rows);
+  const stats=trilhaStats(uniq);
   const ativas=stats.filter(s=>s.max>0);
   const mais=[...stats].sort((a,b)=>b.media-a.media)[0];
   const menos=[...stats].filter(s=>s.max>0).sort((a,b)=>a.media-b.media)[0];
@@ -496,8 +500,8 @@ function renderGeral(rows){
 }
 
 // ========== RENDER: TRILHAS ==========
-function renderTrilhas(rows){
-  const stats=trilhaStats(rows);
+function renderTrilhas(uniq){
+  const stats=trilhaStats(uniq);
   const sorted=[...stats].sort((a,b)=>b.media-a.media);
   const palette=['var(--accent)','var(--teal)','var(--green)','var(--sky)','var(--cyan)','var(--gold)','var(--orange)','var(--pink)','var(--red)','var(--a2)'];
   const mediaGeral=avg(stats.map(s=>s.media));
@@ -508,11 +512,10 @@ function renderTrilhas(rows){
       <div class="trilha-media" style="color:${color}">${fP(s.media)}</div>
       <div class="trilha-bar"><div class="trilha-bar-fill" style="width:${Math.max(s.media,0.5)}%;background:${color}"></div></div>
       <div class="trilha-stats">
-        <div class="trilha-stat"><div class="trilha-stat-l">Total de alunos</div><div class="trilha-stat-v">${fN(s.total)}</div></div>
-        <div class="trilha-stat"><div class="trilha-stat-l">Iniciaram (&gt;0%)</div><div class="trilha-stat-v">${fN(s.iniciados)}</div></div>
+        <div class="trilha-stat"><div class="trilha-stat-l">Alunos que iniciaram</div><div class="trilha-stat-v">${fN(s.iniciados)}</div></div>
         <div class="trilha-stat"><div class="trilha-stat-l">Em 0% (não iniciou)</div><div class="trilha-stat-v">${fN(s.zeros)}</div></div>
         <div class="trilha-stat"><div class="trilha-stat-l">% que iniciou</div><div class="trilha-stat-v">${fP(s.pctIniciou)}</div></div>
-        <div class="trilha-stat" style="grid-column:span 2"><div class="trilha-stat-l">Média de quem iniciou</div><div class="trilha-stat-v">${fP(s.mediaIniciados)}</div></div>
+        <div class="trilha-stat"><div class="trilha-stat-l">Média de quem iniciou</div><div class="trilha-stat-v">${fP(s.mediaIniciados)}</div></div>
       </div>
     </div>`;
   }).join('');
@@ -523,9 +526,8 @@ function renderTrilhas(rows){
 // ========== RENDER: ALUNOS ==========
 let AL_PAGE=1, AL_SORT='total', AL_DIR=-1, AL_SEARCH='', AL_ROWS=[], AL_MOUNTED=false;
 
-function renderAlunos(rows){
-  // Tabela de alunos mostra alunos ÚNICOS (dedupe por email)
-  AL_ROWS=dedupeRows(rows); AL_PAGE=1;
+function renderAlunosList(uniq){
+  AL_ROWS=uniq; AL_PAGE=1;
   mountAlunos();
   drawAlunos();
 }
