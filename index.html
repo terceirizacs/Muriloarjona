@@ -757,13 +757,14 @@ function drawRenov(){
 
   const totalComData=bAll.vencido.length+bAll.ate30.length+bAll.ate60.length+bAll.ate90.length+bAll.mais90.length;
   const aVencer=bAll.ate30.length+bAll.ate60.length+bAll.ate90.length+bAll.mais90.length;
-  const atacarAgora=bAll.vencido.length+bAll.ate30.length+bAll.ate60.length;
+  const ate31a90=bAll.ate60.length+bAll.ate90.length;
+  const atacarAgora=bAll.vencido.length+bAll.ate30.length+ate31a90;
 
   let h='<div class="kpis">';
   h+=`<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Já Venceram</div><div class="kpi-v">${fN(bAll.vencido.length)}</div><div class="kpi-s">${fP(totalComData?bAll.vencido.length/totalComData*100:0)} da base — assinatura expirada (criação há +1 ano)</div></div>`;
   h+=`<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--gold))"></div><div class="kpi-l">Vencem em até 30 dias</div><div class="kpi-v">${fN(bAll.ate30.length)}</div><div class="kpi-s">🚨 Ação urgente — campanha imediata</div></div>`;
-  h+=`<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--gold),var(--sky))"></div><div class="kpi-l">Vencem em 31-60 dias</div><div class="kpi-v">${fN(bAll.ate60.length)}</div><div class="kpi-s">⚡ Começar aquecimento do contato</div></div>`;
-  h+=`<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Pronto p/ Atacar</div><div class="kpi-v">${fN(atacarAgora)}</div><div class="kpi-s">Vencidos + vence em até 60d — fila de renovação</div></div>`;
+  h+=`<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--gold),var(--sky))"></div><div class="kpi-l">Vencem em 31 a 90 dias</div><div class="kpi-v">${fN(ate31a90)}</div><div class="kpi-s">⚡ Aquecer contato e planejar abordagem</div></div>`;
+  h+=`<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Pronto p/ Atacar</div><div class="kpi-v">${fN(atacarAgora)}</div><div class="kpi-s">Vencidos + vencem em até 90d — fila de renovação</div></div>`;
   h+='</div>';
 
   // Distribuição
