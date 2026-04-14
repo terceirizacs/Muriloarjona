@@ -169,6 +169,84 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto}
 .chart-tooltip .tt-row{display:flex;justify-content:space-between;gap:12px}
 .chart-tooltip .tt-label{color:#94a3b8}
 .chart-tooltip .tt-value{font-weight:600;font-family:'JetBrains Mono';color:#f1f5f9}
+
+/* ===== MOBILE ===== */
+@media(max-width:640px){
+  #mainWrap{padding:16px 12px 40px}
+  .header{margin-bottom:20px;gap:10px}
+  .header h1{font-size:18px}
+  .header .sub{font-size:11px}
+  .hdr-logo{width:40px;height:40px;border-radius:12px}
+  .header-right{gap:6px}
+  nav{gap:4px;margin-bottom:16px}
+  .tab-btn{padding:8px 12px;font-size:12px;border-radius:10px}
+  .filter-bar{padding:14px;border-radius:16px;margin-bottom:18px}
+  .filter-header{margin-bottom:12px}
+  .filter-title{font-size:13px}
+  .filter-clear,.filter-apply{padding:6px 10px;font-size:11px}
+  .filter-grid{gap:10px}
+  .kpis{grid-template-columns:1fr 1fr;gap:10px;padding-top:16px;margin:18px 0}
+  .kpi{padding:16px 14px;border-radius:16px}
+  .kpi-l{font-size:10px;margin-bottom:6px;letter-spacing:.5px}
+  .kpi-v{font-size:22px;letter-spacing:-.5px}
+  .kpi-s{font-size:10px;margin-top:6px}
+  .kpi-bar{margin-bottom:12px}
+  .legend-box{padding:10px 12px;font-size:11px;gap:8px;flex-direction:column}
+  .sec{font-size:12px;letter-spacing:1.2px;margin:24px 0 14px}
+  .card{padding:16px;border-radius:16px}
+  .card h3{font-size:15px}
+  .card .d{font-size:11px;margin-bottom:14px}
+  /* Hbar ranking: empilha label+barra+stats */
+  .hbar-area{padding:14px;gap:16px}
+  .hbar-row{flex-direction:column;align-items:stretch;gap:6px}
+  .hbar-lbl{text-align:left;min-width:0;max-width:100%;font-size:12px;font-weight:600;color:var(--t1)}
+  .hbar-track{height:22px}
+  .hbar-row > div[style*="flex-direction:column"]{flex-direction:row !important;align-items:center !important;justify-content:space-between !important;min-width:0 !important;margin-left:0 !important;gap:12px !important}
+  /* Trilha card — números lado a lado flex */
+  .trilha-card{padding:16px;border-radius:14px}
+  .trilha-name{font-size:13px;min-height:32px}
+  .trilha-media{font-size:22px !important}
+  .trilha-stats{gap:6px}
+  .trilha-stat{padding:6px 8px}
+  .trilha-stat-l{font-size:9px}
+  .trilha-stat-v{font-size:12px}
+  /* Resumo números grandes */
+  .trilha-card + .trilha-card, .card div[style*="font-size:42px"]{font-size:32px !important}
+  /* Column chart: permite scroll horizontal com largura mínima das barras */
+  .prog-area{height:260px !important}
+  .prog-bars{gap:6px;padding:24px 8px 0;overflow-x:auto}
+  .prog-bar{min-width:28px}
+  .prog-labels{gap:6px;padding:6px 8px 10px;overflow-x:auto}
+  .prog-lbl{font-size:8px;min-width:28px}
+  .prog-pct{font-size:9px;top:-16px}
+  /* Tabelas */
+  .det-table th, .det-table td{padding:8px 6px;font-size:11px}
+  .det-search{font-size:12px;padding:8px 12px}
+  .det-prog-bar{width:50px;height:6px}
+  .det-pager button{padding:5px 10px;font-size:11px}
+  /* Filtros tags ativas */
+  .filter-tag{padding:4px 10px;font-size:11px}
+  .results-badge{font-size:11px;padding:5px 10px}
+  /* Footer */
+  .footer{padding:20px 0 12px;font-size:11px;margin-top:28px}
+  /* Login */
+  .login-box{padding:36px 24px;border-radius:20px}
+  .login-box h2{font-size:20px}
+  /* Renovação ft-row */
+  .ft-row{gap:8px;padding:10px 0}
+  .ft-tag{min-width:0;font-size:11px;padding:4px 10px}
+  .ft-qty{font-size:12px;min-width:40px}
+  .ft-pct{font-size:11px;min-width:48px}
+  /* Chart tooltip: menor em tela pequena */
+  .chart-tooltip{max-width:220px;font-size:11px;padding:10px 12px}
+  .chart-tooltip .tt-title{font-size:12px}
+}
+@media(max-width:420px){
+  .kpis{grid-template-columns:1fr}
+  .tab-btn{padding:7px 10px;font-size:11px}
+  .trilha-stats{grid-template-columns:1fr 1fr}
+  .header h1{font-size:16px}
+}
 /* Renovação — distribuição */
 .ft-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--track-bg);flex-wrap:wrap}
 @media(min-width:768px){.ft-row{gap:14px;padding:14px 0;flex-wrap:nowrap}}
