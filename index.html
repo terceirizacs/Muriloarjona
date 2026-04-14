@@ -489,15 +489,18 @@ function renderAll(rows){
 
 function renderGeral(uniq){
   const total=uniq.length;
-  const totals=uniq.map(r=>r.total).filter(v=>typeof v==='number');
-  const media=avg(totals);
   let inat=0, nunca=0, ativos=0;
   uniq.forEach(r=>{const s=statusAluno(r); if(s==='inativo')inat++; else if(s==='nunca')nunca++; else ativos++;});
   const pctInat=total?inat/total*100:0;
   const pctNunca=total?nunca/total*100:0;
   const pctAt=total?ativos/total*100:0;
-  const stats=trilhaStats(uniq);
+  const allStats=trilhaStats(uniq);
+  // Se há produto filtrado, considera só essas trilhas no ranking/insights/média
+  const prodSel=getMS('fProduto');
+  const stats=prodSel.length?allStats.filter(s=>prodSel.includes(s.nome)):allStats;
   const ativas=stats.filter(s=>s.max>0);
+  // Média geral = média das médias por produto (considerando quem iniciou)
+  const media=avg(stats.filter(s=>s.iniciados>0).map(s=>s.mediaIniciados));
   const mais=[...stats].sort((a,b)=>b.media-a.media)[0];
   const menos=[...stats].filter(s=>s.max>0).sort((a,b)=>a.media-b.media)[0];
   const maisIniciada=[...stats].sort((a,b)=>b.iniciados-a.iniciados)[0];
@@ -511,7 +514,7 @@ function renderGeral(uniq){
 
   const kpis=`<div class="kpis">
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total de Alunos</div><div class="kpi-v">${fN(total)}</div><div class="kpi-s">${fN(ativos)} ativos · ${fN(inat)} inativos · ${fN(nunca)} nunca acessou</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">Média Geral de Consumo</div><div class="kpi-v">${fP(media)}</div><div class="kpi-s">Média do progresso nas ${TRILHAS.length} trilhas</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">Média Geral de Consumo</div><div class="kpi-v">${fP(media)}</div><div class="kpi-s">Média do progresso nas ${stats.length} trilha${stats.length>1?'s':''}${prodSel.length?' (filtrada)':''}</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--red))"></div><div class="kpi-l">Inativos +30 dias</div><div class="kpi-v">${fP(pctInat)}</div><div class="kpi-s">${fN(inat)} alunos — já acessaram, mas há mais de 30 dias</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Nunca Acessaram</div><div class="kpi-v">${fP(pctNunca)}</div><div class="kpi-s">${fN(nunca)} alunos — nenhum primeiro acesso registrado</div></div>
   </div>`;
@@ -559,7 +562,9 @@ function renderGeral(uniq){
 
 // ========== RENDER: TRILHAS ==========
 function renderTrilhas(uniq){
-  const stats=trilhaStats(uniq);
+  const allStats=trilhaStats(uniq);
+  const prodSel=getMS('fProduto');
+  const stats=prodSel.length?allStats.filter(s=>prodSel.includes(s.nome)):allStats;
   const sorted=[...stats].sort((a,b)=>b.mediaIniciados-a.mediaIniciados);
   const palette=['var(--accent)','var(--teal)','var(--green)','var(--sky)','var(--cyan)','var(--gold)','var(--orange)','var(--pink)','var(--red)','var(--a2)'];
   const mediaGeral=avg(stats.filter(s=>s.iniciados>0).map(s=>s.mediaIniciados));
@@ -600,7 +605,7 @@ function renderTrilhas(uniq){
   }).join('');
   const labels=chartSorted.map(s=>`<div class="prog-lbl" title="${s.nome}">${shortName(s.nome)}</div>`).join('');
 
-  const resumo=`<div class="card" style="margin-bottom:18px"><h3>Média geral das trilhas</h3><div class="d">Média das ${TRILHAS.length} trilhas — cada produto usa apenas os alunos que efetivamente o têm como sua base. Segue o filtro global.</div>
+  const resumo=`<div class="card" style="margin-bottom:18px"><h3>Média geral ${prodSel.length?'do produto filtrado':'das trilhas'}</h3><div class="d">${prodSel.length?'Mostrando apenas a(s) '+stats.length+' trilha(s) selecionada(s) no filtro Produto.':'Média das '+TRILHAS.length+' trilhas'} — cada produto usa apenas os alunos que efetivamente o têm como sua base.</div>
     <div style="margin-top:20px">
       <div style="font-family:JetBrains Mono;font-size:42px;font-weight:700;color:var(--accent);letter-spacing:-2px;line-height:1">${fP(mediaGeral)}</div>
       <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:10px">média geral dos produtos</div>
