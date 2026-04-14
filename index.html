@@ -152,6 +152,16 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto}
 .loading-spinner{width:48px;height:48px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-text{font-size:16px;color:var(--t2)}
+/* Renovação — distribuição */
+.ft-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--track-bg);flex-wrap:wrap}
+@media(min-width:768px){.ft-row{gap:14px;padding:14px 0;flex-wrap:nowrap}}
+.ft-row:last-child{border:none}
+.ft-tag{padding:5px 12px;border-radius:12px;font-size:12px;font-weight:600;font-family:'JetBrains Mono';min-width:0;flex-shrink:0}
+@media(min-width:768px){.ft-tag{min-width:180px;font-size:13px}}
+.ft-qty{font-family:'JetBrains Mono';font-weight:700;font-size:14px;min-width:50px;text-align:right}
+.ft-pct{font-family:'JetBrains Mono';font-size:13px;color:var(--t2);min-width:60px;text-align:right}
+.ft-track{flex:1;height:7px;background:var(--track-fill);border-radius:4px;overflow:hidden;min-width:60px}
+.ft-fill{height:100%;border-radius:4px}
 </style>
 </head>
 <body>
@@ -191,6 +201,7 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto}
     <button class="tab-btn active" onclick="switchTab('geral',this)">📊 Visão Geral</button>
     <button class="tab-btn" onclick="switchTab('trilhas',this)">🎯 Trilhas</button>
     <button class="tab-btn" onclick="switchTab('alunos',this)">👥 Alunos</button>
+    <button class="tab-btn" onclick="switchTab('renovacao',this)">🔄 Renovação</button>
   </nav>
 
   <div class="filter-bar">
@@ -213,6 +224,7 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto}
   <div class="tab-content active" id="tab-geral"><div id="cGeral"></div></div>
   <div class="tab-content" id="tab-trilhas"><div id="cTrilhas"></div></div>
   <div class="tab-content" id="tab-alunos"><div id="cAlunos"></div></div>
+  <div class="tab-content" id="tab-renovacao"><div id="cRenov"></div></div>
 
   <div class="footer"><strong>Terceiriza CS</strong> · Dashboard Executivo · Murilo Arjona</div>
 </div>
@@ -432,12 +444,14 @@ function trilhaStats(rows){
 }
 
 // ========== RENDER: VISÃO GERAL ==========
-// Todo o dashboard trabalha com alunos ÚNICOS (dedupe por email).
+// KPIs/Trilhas/Alunos trabalham com alunos ÚNICOS (dedupe por email).
+// Renovação usa linhas RAW (cada linha = 1 matrícula/acesso, com seu próprio criadoEm).
 function renderAll(rows){
   const uniq=dedupeRows(rows);
   renderGeral(uniq);
   renderTrilhas(uniq);
   renderAlunosList(uniq);
+  renderRenov(rows);
 }
 
 function renderGeral(uniq){
@@ -600,6 +614,195 @@ function drawAlunos(){
 function alSort(f){if(AL_SORT===f)AL_DIR*=-1;else{AL_SORT=f;AL_DIR=f==='nome'?1:-1;}drawAlunos();}
 function alGo(p){AL_PAGE=p;drawAlunos();}
 function alSearch(v){AL_SEARCH=v;AL_PAGE=1;drawAlunos();}
+
+// ========== RENDER: RENOVAÇÃO ==========
+const DAY=86400000, YEAR_MS=365*DAY;
+let RN_PAGE=1, RN_SORT='dias', RN_DIR=1, RN_SEARCH='', RN_ROWS=[], RN_VENCE=[], RN_STATUS=[];
+
+function renovBucket(dias, venc){
+  if(venc) return 'vencido';
+  if(dias<=30) return 'ate30';
+  if(dias<=60) return 'ate60';
+  if(dias<=90) return 'ate90';
+  return 'mais90';
+}
+
+function renderRenov(rows){
+  // Calcula dias até vencer (= criadoEm + 365 - hoje) para cada linha
+  const hoje=new Date(NOW); hoje.setHours(0,0,0,0); const hojeMs=hoje.getTime();
+  const withVenc=rows.map(r=>{
+    if(!r.criadoEm) return {r,venc:null,dias:null};
+    const vencMs=r.criadoEm+YEAR_MS;
+    const dias=Math.floor((vencMs-hojeMs)/DAY);
+    return {r,venc:vencMs,dias};
+  });
+  RN_ROWS=withVenc;
+  mountRenov();
+  drawRenov();
+}
+
+function mountRenov(){
+  const c=document.getElementById('cRenov');
+  if(c.dataset.mounted==='1') return;
+  c.dataset.mounted='1';
+  c.innerHTML=`
+    <div class="filter-bar" style="margin-bottom:20px">
+      <div class="filter-header">
+        <span class="filter-title">🔍 Filtros Renovação</span>
+        <div class="filter-actions">
+          <button class="filter-clear" onclick="resetRenovSub()">Limpar</button>
+        </div>
+      </div>
+      <div class="filter-grid" style="grid-template-columns:1fr 1fr">
+        <div class="filter-group"><label class="filter-label">Vence em</label><div class="ms-wrap" id="fVence"></div></div>
+        <div class="filter-group"><label class="filter-label">Status</label><div class="ms-wrap" id="fVencStatus"></div></div>
+      </div>
+    </div>
+    <div id="cRenovContent"></div>
+  `;
+  buildMS('fVence',['0-30 dias','31-60 dias','61-90 dias','+90 dias']);
+  buildMS('fVencStatus',['Vencido','A vencer']);
+  // Re-apply listeners to call drawRenov when selection changes
+  document.querySelectorAll('#fVence .ms-option, #fVencStatus .ms-option').forEach(o=>{
+    o.setAttribute('onclick','toggleOpt(this);drawRenov()');
+  });
+  document.querySelectorAll('#fVence .ms-selall, #fVencStatus .ms-selall').forEach(o=>{
+    o.setAttribute('onclick','toggleAll(this);drawRenov()');
+  });
+}
+
+function resetRenovSub(){
+  document.querySelectorAll('#fVence .ms-option.selected, #fVencStatus .ms-option.selected').forEach(o=>o.classList.remove('selected'));
+  document.querySelectorAll('#fVence .ms-trigger, #fVencStatus .ms-trigger').forEach(t=>t.innerHTML='Todos');
+  drawRenov();
+}
+
+function drawRenov(){
+  const cont=document.getElementById('cRenovContent');
+  if(!cont) return;
+  const fv=getMS('fVence'), fs=getMS('fVencStatus');
+
+  // Buckets globais (sem sub-filtro) — para insights e KPIs principais
+  const bAll={vencido:[],ate30:[],ate60:[],ate90:[],mais90:[],semData:[]};
+  RN_ROWS.forEach(x=>{
+    if(x.dias===null){ bAll.semData.push(x); return; }
+    if(x.dias<0) bAll.vencido.push(x);
+    else if(x.dias<=30) bAll.ate30.push(x);
+    else if(x.dias<=60) bAll.ate60.push(x);
+    else if(x.dias<=90) bAll.ate90.push(x);
+    else bAll.mais90.push(x);
+  });
+
+  // Aplicar sub-filtros
+  let filtered=RN_ROWS.filter(x=>{
+    if(x.dias===null) return false;
+    const venc=x.dias<0;
+    if(fv.length){
+      let m=false;
+      fv.forEach(v=>{
+        if(v==='0-30 dias' && !venc && x.dias>=0 && x.dias<=30) m=true;
+        if(v==='31-60 dias' && !venc && x.dias>30 && x.dias<=60) m=true;
+        if(v==='61-90 dias' && !venc && x.dias>60 && x.dias<=90) m=true;
+        if(v==='+90 dias' && !venc && x.dias>90) m=true;
+      });
+      if(!m) return false;
+    }
+    if(fs.length){
+      const lbl=venc?'Vencido':'A vencer';
+      if(!fs.includes(lbl)) return false;
+    }
+    return true;
+  });
+
+  const b={vencido:[],ate30:[],ate60:[],ate90:[],mais90:[]};
+  filtered.forEach(x=>{
+    if(x.dias<0) b.vencido.push(x);
+    else if(x.dias<=30) b.ate30.push(x);
+    else if(x.dias<=60) b.ate60.push(x);
+    else if(x.dias<=90) b.ate90.push(x);
+    else b.mais90.push(x);
+  });
+
+  const totalComData=bAll.vencido.length+bAll.ate30.length+bAll.ate60.length+bAll.ate90.length+bAll.mais90.length;
+  const aVencer=bAll.ate30.length+bAll.ate60.length+bAll.ate90.length+bAll.mais90.length;
+  const atacarAgora=bAll.vencido.length+bAll.ate30.length+bAll.ate60.length;
+
+  let h='<div class="kpis">';
+  h+=`<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Já Venceram</div><div class="kpi-v">${fN(bAll.vencido.length)}</div><div class="kpi-s">${fP(totalComData?bAll.vencido.length/totalComData*100:0)} da base — assinatura expirada (criação há +1 ano)</div></div>`;
+  h+=`<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--gold))"></div><div class="kpi-l">Vencem em até 30 dias</div><div class="kpi-v">${fN(bAll.ate30.length)}</div><div class="kpi-s">🚨 Ação urgente — campanha imediata</div></div>`;
+  h+=`<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--gold),var(--sky))"></div><div class="kpi-l">Vencem em 31-60 dias</div><div class="kpi-v">${fN(bAll.ate60.length)}</div><div class="kpi-s">⚡ Começar aquecimento do contato</div></div>`;
+  h+=`<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Pronto p/ Atacar</div><div class="kpi-v">${fN(atacarAgora)}</div><div class="kpi-s">Vencidos + vence em até 60d — fila de renovação</div></div>`;
+  h+='</div>';
+
+  // Distribuição
+  const faixas=[
+    ['Já venceu',b.vencido.length,'var(--red)','rgba(248,113,113,.12)'],
+    ['Vence em 0-30 dias',b.ate30.length,'var(--orange)','rgba(251,146,60,.12)'],
+    ['Vence em 31-60 dias',b.ate60.length,'var(--gold)','rgba(251,191,36,.12)'],
+    ['Vence em 61-90 dias',b.ate90.length,'var(--sky)','rgba(56,189,248,.12)'],
+    ['Vence em +90 dias',b.mais90.length,'var(--green)','rgba(52,211,153,.12)']
+  ];
+  const distTotal=filtered.length||1;
+  h+='<div class="sec">📊 Status de Vencimento</div>';
+  const subLabel=(fv.length||fs.length)?(fN(filtered.length)+' resultados filtrados'):'Distribuição de dias restantes para renovação (base: criado_em + 365 dias)';
+  h+=`<div class="card"><h3>Distribuição por Vencimento</h3><div class="d">${subLabel}</div>`;
+  faixas.forEach(([l,c,col,bg])=>{
+    const pc=c/distTotal*100;
+    h+=`<div class="ft-row"><span class="ft-tag" style="background:${bg};color:${col}">${l}</span><span class="ft-qty">${fN(c)}</span><span class="ft-pct">${fP(pc)}</span><div class="ft-track"><div class="ft-fill" style="width:${pc.toFixed(1)}%;background:${col}"></div></div></div>`;
+  });
+  h+='</div>';
+
+  // Tabela
+  const list=[...filtered].sort((a,b)=>(a.dias-b.dias)*RN_DIR);
+  const per=50, pages=Math.max(1,Math.ceil(list.length/per));
+  if(RN_PAGE>pages) RN_PAGE=1;
+  const slice=list.slice((RN_PAGE-1)*per, RN_PAGE*per);
+  const fmt=ts=>{if(!ts)return '—';const d=new Date(ts);return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();};
+  h+=`<div class="sec">📋 Alunos — ${fN(list.length)} registros</div>`;
+  h+=`<div class="card"><div style="overflow-x:auto"><table class="det-table">
+    <thead><tr>
+      <th>Aluno</th>
+      <th>Turma / Tag</th>
+      <th style="text-align:right">Data de compra</th>
+      <th style="text-align:right">Vence em</th>
+      <th style="text-align:right">Dias restantes</th>
+      <th>Status</th>
+    </tr></thead>
+    <tbody>${slice.map(x=>{
+      const r=x.r;
+      const venc=x.dias<0;
+      const st=venc?'Vencido':(x.dias<=30?'Atacar já':x.dias<=60?'Aquecendo':x.dias<=90?'Planejar':'Vigente');
+      const col=venc?'var(--red)':x.dias<=30?'var(--orange)':x.dias<=60?'var(--gold)':x.dias<=90?'var(--sky)':'var(--green)';
+      const bg=venc?'rgba(248,113,113,.12)':x.dias<=30?'rgba(251,146,60,.12)':x.dias<=60?'rgba(251,191,36,.12)':x.dias<=90?'rgba(56,189,248,.12)':'rgba(52,211,153,.12)';
+      const tags=normTagsList(r.tags).slice(0,2).join(', ')||'—';
+      return `<tr>
+        <td><div style="color:var(--t1);font-weight:600">${r.nome||'—'}</div><div style="font-size:11px;color:var(--t3)">${r.email||''}</div></td>
+        <td style="max-width:240px"><div style="font-size:12px">${tags}</div></td>
+        <td style="text-align:right;font-family:JetBrains Mono;font-size:12px">${fmt(r.criadoEm)}</td>
+        <td style="text-align:right;font-family:JetBrains Mono;font-size:12px">${fmt(x.venc)}</td>
+        <td style="text-align:right;font-family:JetBrains Mono;font-weight:700;color:${col}">${venc?('-'+Math.abs(x.dias)+'d'):(x.dias+'d')}</td>
+        <td><span style="padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600;background:${bg};color:${col}">${st}</span></td>
+      </tr>`;
+    }).join('')}</tbody></table></div>`;
+  h+=`<div class="det-pager">${Array.from({length:pages},(_,i)=>i+1).filter(p=>p===1||p===pages||Math.abs(p-RN_PAGE)<=2).map(p=>`<button class="${p===RN_PAGE?'active':''}" onclick="rnGo(${p})">${p}</button>`).join('')}</div>`;
+  h+='</div>';
+
+  // Insights
+  h+='<div class="sec">💡 Insights de Renovação</div><div class="ins-g">';
+  if(bAll.vencido.length>0){
+    h+=`<div class="ins w"><div class="ins-t">🔒 ${fN(bAll.vencido.length)} assinaturas já venceram</div><div class="ins-p">Contato urgente — aluno com mais de 1 ano desde a compra. Iniciar fluxo de reativação.</div></div>`;
+  }else{
+    h+=`<div class="ins ok"><div class="ins-t">✅ Nenhuma assinatura vencida</div><div class="ins-p">Todos os alunos ainda estão dentro do primeiro ano de acesso (com base em criado_em + 365 dias).</div></div>`;
+  }
+  if(bAll.ate30.length>0) h+=`<div class="ins w"><div class="ins-t">⚠️ ${fN(bAll.ate30.length)} vencem nos próximos 30 dias</div><div class="ins-p">Ação urgente — iniciar campanha de renovação agora.</div></div>`;
+  if(bAll.ate60.length>0) h+=`<div class="ins i"><div class="ins-t">⚡ ${fN(bAll.ate60.length)} vencem entre 31-60 dias</div><div class="ins-p">Começar aquecimento do contato e apresentação dos benefícios da renovação.</div></div>`;
+  if(atacarAgora>0) h+=`<div class="ins i"><div class="ins-t">🎯 Fila de ataque: ${fN(atacarAgora)} alunos</div><div class="ins-p">Vencidos + vencem em até 60 dias. Priorizar estes contatos nas próximas semanas.</div></div>`;
+  h+=`<div class="ins ok"><div class="ins-t">📅 Base a vencer</div><div class="ins-p">${fN(aVencer)} alunos com acesso vigente (${fP(totalComData?aVencer/totalComData*100:0)} da base com data de compra).</div></div>`;
+  h+='</div>';
+
+  cont.innerHTML=h;
+}
+function rnGo(p){RN_PAGE=p;drawRenov();}
 
 </script>
 </body>
