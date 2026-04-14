@@ -43,9 +43,15 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto}
 .filter-apply{padding:7px 14px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:700;cursor:pointer}
 .filter-grid{display:grid;grid-template-columns:1fr;gap:12px}
 @media(min-width:600px){.filter-grid{grid-template-columns:repeat(2,1fr)}}
-@media(min-width:900px){.filter-grid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:900px){.filter-grid{grid-template-columns:repeat(4,1fr)}}
 .filter-group{display:flex;flex-direction:column;gap:5px}
 .filter-label{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:1px}
+.filter-date-row{display:flex;gap:6px}
+.filter-date{flex:1;padding:9px;border-radius:9px;border:1px solid var(--border);background:var(--track-bg);color:var(--t1);font-size:13px;font-family:'JetBrains Mono'}
+.legend-box{display:flex;gap:14px;flex-wrap:wrap;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin:18px 0 4px;font-size:12px;color:var(--t2)}
+.legend-box .lg-item{display:flex;align-items:center;gap:8px}
+.legend-box .lg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.legend-box strong{color:var(--t1);font-weight:700}
 .ms-wrap{position:relative}
 .ms-trigger{padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--track-bg);color:var(--t2);font-size:13px;cursor:pointer;user-select:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ms-trigger:hover,.ms-trigger.open{border-color:var(--accent);color:var(--t1)}
@@ -196,9 +202,10 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto}
       </div>
     </div>
     <div class="filter-grid">
-      <div class="filter-group"><label class="filter-label">Turma</label><div class="ms-wrap" id="fTurma"></div></div>
-      <div class="filter-group"><label class="filter-label">Produto / Tag</label><div class="ms-wrap" id="fTag"></div></div>
+      <div class="filter-group"><label class="filter-label">Turma / Tag</label><div class="ms-wrap" id="fTurma"></div></div>
+      <div class="filter-group"><label class="filter-label">Produto (Trilha)</label><div class="ms-wrap" id="fProduto"></div></div>
       <div class="filter-group"><label class="filter-label">Status</label><div class="ms-wrap" id="fStatus"></div></div>
+      <div class="filter-group"><label class="filter-label">Data de Compra</label><div class="filter-date-row"><input type="date" class="filter-date" id="fDe"><input type="date" class="filter-date" id="fAte"></div></div>
     </div>
     <div class="active-filters" id="tagsArea"><div class="filter-tag neutral">Nenhum filtro ativo</div></div>
   </div>
@@ -232,9 +239,9 @@ async function loadData(){
     const r=await fetch(API_URL);
     const D=await r.json();
     if(D.error) throw new Error(D.error);
-    ROWS=D.rows||[];
     TRILHAS=D.trilhaNames||[];
     NOW=D.todayMs||Date.now();
+    ROWS=dedupeRows(D.rows||[]);
     initDate();
     buildFilters();
     renderAll(ROWS);
@@ -258,13 +265,21 @@ function norm(s){return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').
 
 function splitTags(s){ if(!s) return []; return String(s).split(',').map(t=>t.trim()).filter(Boolean); }
 
-function extractTurmas(tagsStr){
-  const out=new Set();
-  splitTags(tagsStr).forEach(t=>{
-    const m=t.match(/FPRO\s*0*(\d+)/i);
-    if(m) out.add('T'+parseInt(m[1]));
+// Dedupe: 1 linha por aluno único (email, ou id, ou nome)
+function dedupeRows(rows){
+  const map=new Map();
+  rows.forEach(r=>{
+    const key=(r.email||'').trim().toLowerCase()||('id:'+(r.id||''))||('n:'+norm(r.nome||''));
+    if(!key) return;
+    const cur=map.get(key);
+    if(!cur){ map.set(key,r); return; }
+    // manter o aluno com maior total (mais consumo); desempate pelo último acesso mais recente
+    const curT=typeof cur.total==='number'?cur.total:-1;
+    const newT=typeof r.total==='number'?r.total:-1;
+    if(newT>curT){ map.set(key,r); return; }
+    if(newT===curT && (r.ultAcesso||0)>(cur.ultAcesso||0)){ map.set(key,r); }
   });
-  return [...out];
+  return [...map.values()];
 }
 
 function normTag(tag){
@@ -324,34 +339,42 @@ function getMS(id){const e=document.getElementById(id);if(!e)return[];return Arr
 document.addEventListener('click',e=>{if(!e.target.closest('.ms-wrap'))document.querySelectorAll('.ms-dropdown.show').forEach(d=>{d.classList.remove('show');d.previousElementSibling.classList.remove('open');});});
 
 function buildFilters(){
-  const turmasSet=new Set(), tagsSet=new Set();
-  ROWS.forEach(r=>{
-    extractTurmas(r.tags).forEach(t=>turmasSet.add(t));
-    normTagsList(r.tags).forEach(t=>{ if(!/^T\d+$/.test(t)) tagsSet.add(t); });
+  const tagsSet=new Set();
+  ROWS.forEach(r=>{ normTagsList(r.tags).forEach(t=>tagsSet.add(t)); });
+  const tags=[...tagsSet].sort((a,b)=>{
+    // Turmas (T13, T14...) primeiro, depois alfabético
+    const ta=/^T(\d+)$/.exec(a), tb=/^T(\d+)$/.exec(b);
+    if(ta&&tb) return parseInt(ta[1])-parseInt(tb[1]);
+    if(ta) return -1; if(tb) return 1;
+    return a.localeCompare(b);
   });
-  const turmas=[...turmasSet].sort((a,b)=>parseInt(a.replace('T',''))-parseInt(b.replace('T','')));
-  const tags=[...tagsSet].sort();
-  buildMS('fTurma',turmas);
-  buildMS('fTag',tags);
+  buildMS('fTurma',tags);
+  buildMS('fProduto',TRILHAS.slice());
   buildMS('fStatus',['Ativo','Inativo +30d','Nunca acessou']);
 }
 
 function getFiltered(){
-  const ft=getMS('fTurma'), fg=getMS('fTag'), fs=getMS('fStatus');
+  const ft=getMS('fTurma'), fp=getMS('fProduto'), fs=getMS('fStatus');
+  const de=document.getElementById('fDe').value?new Date(document.getElementById('fDe').value).getTime():null;
+  const ate=document.getElementById('fAte').value?new Date(document.getElementById('fAte').value+'T23:59:59').getTime():null;
   return ROWS.filter(r=>{
     if(ft.length){
-      const trs=extractTurmas(r.tags);
-      if(!trs.some(t=>ft.includes(t))) return false;
-    }
-    if(fg.length){
       const ts=normTagsList(r.tags);
-      if(!ts.some(t=>fg.includes(t))) return false;
+      if(!ts.some(t=>ft.includes(t))) return false;
+    }
+    if(fp.length){
+      // aluno filtrado se INICIOU (>0) em pelo menos uma das trilhas selecionadas
+      const ok=fp.some(tr=>{const v=r.trilhas?r.trilhas[tr]:null; return typeof v==='number' && v>0;});
+      if(!ok) return false;
     }
     if(fs.length){
       const st=statusAluno(r);
       const lbl=st==='ativo'?'Ativo':st==='inativo'?'Inativo +30d':'Nunca acessou';
       if(!fs.includes(lbl)) return false;
     }
+    if(de && r.criadoEm && r.criadoEm<de) return false;
+    if(ate && r.criadoEm && r.criadoEm>ate) return false;
+    if((de||ate) && !r.criadoEm) return false;
     return true;
   });
 }
@@ -359,8 +382,10 @@ function getFiltered(){
 function applyFilters(){
   const rows=getFiltered(), tags=[];
   getMS('fTurma').forEach(v=>tags.push(v));
-  getMS('fTag').forEach(v=>tags.push(v));
+  getMS('fProduto').forEach(v=>tags.push(v.length>24?v.slice(0,22)+'…':v));
   getMS('fStatus').forEach(v=>tags.push(v));
+  if(document.getElementById('fDe').value) tags.push('De: '+document.getElementById('fDe').value);
+  if(document.getElementById('fAte').value) tags.push('Até: '+document.getElementById('fAte').value);
   const a=document.getElementById('tagsArea');
   a.innerHTML=tags.length
     ? tags.map(t=>'<div class="filter-tag">'+t+'</div>').join('')+'<span class="results-badge">→ '+fN(rows.length)+' alunos</span>'
@@ -370,6 +395,7 @@ function applyFilters(){
 function resetFilters(){
   document.querySelectorAll('.ms-option.selected').forEach(o=>o.classList.remove('selected'));
   document.querySelectorAll('.ms-trigger').forEach(t=>t.innerHTML='Todos');
+  document.querySelectorAll('.filter-date').forEach(d=>d.value='');
   document.getElementById('tagsArea').innerHTML='<div class="filter-tag neutral">Nenhum filtro ativo</div>';
   renderAll(ROWS);
 }
@@ -414,17 +440,33 @@ function renderGeral(rows){
   const media=avg(totals);
   let inat=0, nunca=0, ativos=0;
   rows.forEach(r=>{const s=statusAluno(r); if(s==='inativo')inat++; else if(s==='nunca')nunca++; else ativos++;});
+  const pctInat=total?inat/total*100:0;
+  const pctNunca=total?nunca/total*100:0;
+  const pctAt=total?ativos/total*100:0;
   const stats=trilhaStats(rows);
   const ativas=stats.filter(s=>s.max>0);
   const mais=[...stats].sort((a,b)=>b.media-a.media)[0];
   const menos=[...stats].filter(s=>s.max>0).sort((a,b)=>a.media-b.media)[0];
   const maisIniciada=[...stats].sort((a,b)=>b.iniciados-a.iniciados)[0];
+  // Alunos que NUNCA iniciaram NENHUMA trilha (zero absoluto em todas)
+  let zeroAbs=0;
+  rows.forEach(r=>{
+    const vs=TRILHAS.map(n=>r.trilhas?r.trilhas[n]:null).filter(v=>typeof v==='number');
+    if(vs.length && vs.every(v=>v===0)) zeroAbs++;
+  });
+  const pctZeroAbs=total?zeroAbs/total*100:0;
 
   const kpis=`<div class="kpis">
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total de Alunos</div><div class="kpi-v">${fN(total)}</div><div class="kpi-s">${fN(ativos)} ativos · ${fN(inat)} inativos · ${fN(nunca)} nunca acessou</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">Média Geral de Consumo</div><div class="kpi-v">${fP(media)}</div><div class="kpi-s">Considerando todas as ${TRILHAS.length} trilhas</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--red))"></div><div class="kpi-l">Inativos +30 dias</div><div class="kpi-v">${fP(total?inat/total*100:0)}</div><div class="kpi-s">${fN(inat)} alunos sem acessar há mais de 30 dias</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Total de Trilhas</div><div class="kpi-v">${TRILHAS.length}</div><div class="kpi-s">${ativas.length} com algum consumo registrado</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total de Alunos (únicos)</div><div class="kpi-v">${fN(total)}</div><div class="kpi-s">${fN(ativos)} ativos · ${fN(inat)} inativos · ${fN(nunca)} nunca acessou</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">Média Geral de Consumo</div><div class="kpi-v">${fP(media)}</div><div class="kpi-s">Média do progresso nas ${TRILHAS.length} trilhas</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--red))"></div><div class="kpi-l">Inativos +30 dias</div><div class="kpi-v">${fP(pctInat)}</div><div class="kpi-s">${fN(inat)} alunos — já acessaram, mas há mais de 30 dias</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Nunca Acessaram</div><div class="kpi-v">${fP(pctNunca)}</div><div class="kpi-s">${fN(nunca)} alunos — nenhum primeiro acesso registrado</div></div>
+  </div>`;
+
+  const legend=`<div class="legend-box">
+    <div class="lg-item"><span class="lg-dot" style="background:var(--green)"></span><strong>Ativo:</strong>&nbsp;último acesso nos últimos 30 dias</div>
+    <div class="lg-item"><span class="lg-dot" style="background:var(--orange)"></span><strong>Inativo +30d:</strong>&nbsp;já acessou, mas há mais de 30 dias sem login</div>
+    <div class="lg-item"><span class="lg-dot" style="background:var(--red)"></span><strong>Nunca acessou:</strong>&nbsp;comprou mas ainda não fez o primeiro login na plataforma</div>
   </div>`;
 
   // Ranking de trilhas (hbar)
@@ -432,21 +474,23 @@ function renderGeral(rows){
   const maxMedia=Math.max(...sortedStats.map(s=>s.media),1);
   const palette=['#8b7cf7','#a78bfa','#2dd4bf','#34d399','#38bdf8','#22d3ee','#fbbf24','#fb923c','#f472b6','#f87171','#a78bfa','#8b7cf7','#2dd4bf','#34d399'];
   const rank=`<div class="sec">Ranking por trilha — média de consumo</div>
-    <div class="card"><h3>Média de consumo por trilha</h3><div class="d">Percentual médio de progresso considerando todos os alunos. Quanto maior, mais a trilha está sendo consumida.</div>
+    <div class="card"><h3>Média de consumo por trilha</h3><div class="d">Percentual médio de progresso considerando todos os alunos (únicos). Quanto maior, mais a trilha está sendo consumida.</div>
     <div class="hbar-area">
       ${sortedStats.map((s,i)=>{const w=Math.max(s.media/maxMedia*100,0.5);return `<div class="hbar-row"><div class="hbar-lbl" title="${s.nome}">${s.nome}</div><div class="hbar-track"><div class="hbar-fill" style="width:${w}%;background:${palette[i%palette.length]}">${s.media>=5?fP(s.media):''}</div></div><div class="hbar-pct">${fP(s.media)}</div></div>`;}).join('')}
     </div></div>`;
 
-  // Insights
+  // Insights — texto reescrito para ficar claro
   const insights=`<div class="sec">Insights</div>
     <div class="ins-g">
-      ${mais?`<div class="ins ok"><div class="ins-t">🏆 Trilha mais consumida</div><div class="ins-p"><strong>${mais.nome}</strong> — média de ${fP(mais.media)} com ${fN(mais.iniciados)} alunos engajados.</div></div>`:''}
-      ${menos?`<div class="ins w"><div class="ins-t">⚠️ Trilha menos consumida (ativa)</div><div class="ins-p"><strong>${menos.nome}</strong> — apenas ${fP(menos.media)} de média, ${fN(menos.iniciados)} alunos iniciaram.</div></div>`:''}
-      ${maisIniciada?`<div class="ins i"><div class="ins-t">🔥 Trilha com mais alunos</div><div class="ins-p"><strong>${maisIniciada.nome}</strong> — ${fN(maisIniciada.iniciados)} alunos já iniciaram (${fP(maisIniciada.pctIniciou)} do total).</div></div>`:''}
-      <div class="ins i"><div class="ins-t">📉 Nunca iniciaram nada</div><div class="ins-p">${fN(nunca)} alunos (${fP(total?nunca/total*100:0)}) nunca fizeram primeiro acesso à plataforma.</div></div>
+      ${mais?`<div class="ins ok"><div class="ins-t">🏆 Trilha mais consumida</div><div class="ins-p"><strong>${mais.nome}</strong> — média de ${fP(mais.media)}. ${fN(mais.iniciados)} alunos iniciaram (${fP(mais.pctIniciou)} do total).</div></div>`:''}
+      ${menos?`<div class="ins w"><div class="ins-t">⚠️ Trilha menos consumida</div><div class="ins-p"><strong>${menos.nome}</strong> — apenas ${fP(menos.media)} de média. Somente ${fN(menos.iniciados)} alunos iniciaram.</div></div>`:''}
+      ${maisIniciada?`<div class="ins i"><div class="ins-t">🔥 Trilha com mais alunos engajados</div><div class="ins-p"><strong>${maisIniciada.nome}</strong> — ${fN(maisIniciada.iniciados)} alunos já iniciaram (${fP(maisIniciada.pctIniciou)} do total).</div></div>`:''}
+      <div class="ins w"><div class="ins-t">🚫 Alunos que nunca fizeram login</div><div class="ins-p"><strong>${fN(nunca)}</strong> alunos (${fP(pctNunca)}) compraram mas nunca acessaram a plataforma — nenhum primeiro acesso registrado.</div></div>
+      <div class="ins w"><div class="ins-t">😴 Alunos zerados em TODAS as trilhas</div><div class="ins-p"><strong>${fN(zeroAbs)}</strong> alunos (${fP(pctZeroAbs)}) estão em 0% em todas as ${TRILHAS.length} trilhas — não consumiram nada de nenhum produto.</div></div>
+      <div class="ins ok"><div class="ins-t">✅ Alunos ativos</div><div class="ins-p"><strong>${fN(ativos)}</strong> alunos (${fP(pctAt)}) acessaram a plataforma nos últimos 30 dias.</div></div>
     </div>`;
 
-  document.getElementById('cGeral').innerHTML=kpis+rank+insights;
+  document.getElementById('cGeral').innerHTML=kpis+legend+rank+insights;
 }
 
 // ========== RENDER: TRILHAS ==========
@@ -454,6 +498,7 @@ function renderTrilhas(rows){
   const stats=trilhaStats(rows);
   const sorted=[...stats].sort((a,b)=>b.media-a.media);
   const palette=['var(--accent)','var(--teal)','var(--green)','var(--sky)','var(--cyan)','var(--gold)','var(--orange)','var(--pink)','var(--red)','var(--a2)'];
+  const mediaGeral=avg(stats.map(s=>s.media));
   const cards=sorted.map((s,i)=>{
     const color=palette[i%palette.length];
     return `<div class="trilha-card">
@@ -461,23 +506,51 @@ function renderTrilhas(rows){
       <div class="trilha-media" style="color:${color}">${fP(s.media)}</div>
       <div class="trilha-bar"><div class="trilha-bar-fill" style="width:${Math.max(s.media,0.5)}%;background:${color}"></div></div>
       <div class="trilha-stats">
-        <div class="trilha-stat"><div class="trilha-stat-l">Iniciaram</div><div class="trilha-stat-v">${fN(s.iniciados)}</div></div>
-        <div class="trilha-stat"><div class="trilha-stat-l">Em 0%</div><div class="trilha-stat-v">${fN(s.zeros)}</div></div>
-        <div class="trilha-stat"><div class="trilha-stat-l">% iniciou</div><div class="trilha-stat-v">${fP(s.pctIniciou)}</div></div>
-        <div class="trilha-stat"><div class="trilha-stat-l">Média dos que iniciaram</div><div class="trilha-stat-v">${fP(s.mediaIniciados)}</div></div>
+        <div class="trilha-stat"><div class="trilha-stat-l">Total de alunos</div><div class="trilha-stat-v">${fN(s.total)}</div></div>
+        <div class="trilha-stat"><div class="trilha-stat-l">Iniciaram (&gt;0%)</div><div class="trilha-stat-v">${fN(s.iniciados)}</div></div>
+        <div class="trilha-stat"><div class="trilha-stat-l">Em 0% (não iniciou)</div><div class="trilha-stat-v">${fN(s.zeros)}</div></div>
+        <div class="trilha-stat"><div class="trilha-stat-l">% que iniciou</div><div class="trilha-stat-v">${fP(s.pctIniciou)}</div></div>
+        <div class="trilha-stat" style="grid-column:span 2"><div class="trilha-stat-l">Média de quem iniciou</div><div class="trilha-stat-v">${fP(s.mediaIniciados)}</div></div>
       </div>
     </div>`;
   }).join('');
-  document.getElementById('cTrilhas').innerHTML=`<div class="sec">Detalhamento por trilha</div><div class="d" style="color:var(--t3);font-size:13px;margin-bottom:18px">Cada card mostra, por trilha, quantos alunos iniciaram, quantos estão em 0% e a média de consumo.</div><div class="trilha-grid">${cards}</div>`;
+  const resumo=`<div class="card" style="margin-bottom:18px"><h3>Média geral de todas as trilhas</h3><div class="d">Média aritmética do consumo das ${TRILHAS.length} trilhas nesta seleção.</div><div style="font-family:JetBrains Mono;font-size:42px;font-weight:700;color:var(--accent);letter-spacing:-2px">${fP(mediaGeral)}</div></div>`;
+  document.getElementById('cTrilhas').innerHTML=`<div class="sec">Detalhamento por trilha</div>${resumo}<div class="trilha-grid">${cards}</div>`;
 }
 
 // ========== RENDER: ALUNOS ==========
-let AL_PAGE=1, AL_SORT='total', AL_DIR=-1, AL_SEARCH='', AL_ROWS=[];
+let AL_PAGE=1, AL_SORT='total', AL_DIR=-1, AL_SEARCH='', AL_ROWS=[], AL_MOUNTED=false;
+
 function renderAlunos(rows){
   AL_ROWS=rows; AL_PAGE=1;
+  mountAlunos();
   drawAlunos();
 }
+
+function mountAlunos(){
+  // Monta apenas UMA VEZ a estrutura estática (header + input + container)
+  // para não perder o foco do campo de busca enquanto o usuário digita.
+  const c=document.getElementById('cAlunos');
+  if(c.dataset.mounted==='1'){
+    // Atualiza só o valor exibido no input (sem recriar)
+    return;
+  }
+  c.dataset.mounted='1';
+  c.innerHTML=`
+    <div class="sec">Alunos</div>
+    <div class="card">
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+        <input class="det-search" id="alSearchInput" placeholder="Buscar por nome, email ou tag..." oninput="alSearch(this.value)">
+        <span id="alResultsInfo" style="font-family:JetBrains Mono;color:var(--t3);font-size:12px"></span>
+      </div>
+      <div style="overflow-x:auto"><table class="det-table" id="alTable"></table></div>
+      <div id="alPager" class="det-pager"></div>
+    </div>`;
+  document.getElementById('alSearchInput').value=AL_SEARCH;
+}
+
 function drawAlunos(){
+  if(!document.getElementById('alTable')) return;
   const q=norm(AL_SEARCH);
   let list=AL_ROWS.filter(r=>{
     if(!q) return true;
@@ -498,10 +571,10 @@ function drawAlunos(){
   const tagDisp=r=>{const ts=normTagsList(r.tags).slice(0,3).join(', ');return ts||'—';};
   const head=`<thead><tr>
     <th onclick="alSort('nome')">Aluno ${AL_SORT==='nome'?(AL_DIR>0?'▲':'▼'):''}</th>
-    <th>Turmas / Tags</th>
+    <th>Turma / Tag</th>
     <th>Status</th>
     <th onclick="alSort('ult')">Último acesso ${AL_SORT==='ult'?(AL_DIR>0?'▲':'▼'):''}</th>
-    <th onclick="alSort('total')" style="text-align:right">Média ${AL_SORT==='total'?(AL_DIR>0?'▲':'▼'):''}</th>
+    <th onclick="alSort('total')" style="text-align:right">Média (todas as trilhas) ${AL_SORT==='total'?(AL_DIR>0?'▲':'▼'):''}</th>
   </tr></thead>`;
   const body=`<tbody>${slice.map(r=>{
     const t=r.total||0;
@@ -514,17 +587,9 @@ function drawAlunos(){
       <td style="text-align:right"><div class="det-prog"><div class="det-prog-bar"><div class="det-prog-fill" style="width:${Math.min(t,100)}%;background:${color}"></div></div><span style="font-family:JetBrains Mono;font-weight:700;color:${color};min-width:50px;text-align:right">${fP(t)}</span></div></td>
     </tr>`;
   }).join('')}</tbody>`;
-  const pager=`<div class="det-pager">${Array.from({length:pages},(_,i)=>i+1).filter(p=>p===1||p===pages||Math.abs(p-AL_PAGE)<=2).map(p=>`<button class="${p===AL_PAGE?'active':''}" onclick="alGo(${p})">${p}</button>`).join('')}</div>`;
-  document.getElementById('cAlunos').innerHTML=`
-    <div class="sec">Alunos</div>
-    <div class="card">
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
-        <input class="det-search" placeholder="Buscar por nome, email ou tag..." oninput="alSearch(this.value)" value="${AL_SEARCH.replace(/"/g,'&quot;')}">
-        <span style="font-family:JetBrains Mono;color:var(--t3);font-size:12px">${fN(list.length)} resultado(s) · página ${AL_PAGE}/${pages}</span>
-      </div>
-      <div style="overflow-x:auto"><table class="det-table">${head}${body}</table></div>
-      ${pager}
-    </div>`;
+  document.getElementById('alTable').innerHTML=head+body;
+  document.getElementById('alResultsInfo').textContent=fN(list.length)+' resultado(s) · página '+AL_PAGE+'/'+pages;
+  document.getElementById('alPager').innerHTML=Array.from({length:pages},(_,i)=>i+1).filter(p=>p===1||p===pages||Math.abs(p-AL_PAGE)<=2).map(p=>`<button class="${p===AL_PAGE?'active':''}" onclick="alGo(${p})">${p}</button>`).join('');
 }
 function alSort(f){if(AL_SORT===f)AL_DIR*=-1;else{AL_SORT=f;AL_DIR=f==='nome'?1:-1;}drawAlunos();}
 function alGo(p){AL_PAGE=p;drawAlunos();}
