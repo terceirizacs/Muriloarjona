@@ -152,6 +152,17 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto}
 .loading-spinner{width:48px;height:48px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-text{font-size:16px;color:var(--t2)}
+/* Column chart (prog-area) — média por produto */
+.prog-area{background:var(--chart-bg);border-radius:14px;display:flex;flex-direction:column;overflow:visible}
+.prog-bars{flex:1;display:flex;align-items:flex-end;gap:5px;padding:24px 10px 0}
+@media(min-width:768px){.prog-bars{gap:8px;padding:28px 16px 0}}
+.prog-labels{display:flex;gap:5px;padding:6px 10px 10px}
+@media(min-width:768px){.prog-labels{gap:8px;padding:8px 16px 12px}}
+.prog-lbl{flex:1;text-align:center;font-size:9px;color:var(--t3);font-family:'JetBrains Mono';overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(min-width:768px){.prog-lbl{font-size:10px}}
+.prog-bar{flex:1;border-radius:5px 5px 0 0;position:relative;transition:all .3s;cursor:default;min-height:4px}
+.prog-bar:hover{filter:brightness(1.3)}
+.prog-pct{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:10px;font-family:'JetBrains Mono';font-weight:600;color:var(--t1);white-space:nowrap}
 /* Renovação — distribuição */
 .ft-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--track-bg);flex-wrap:wrap}
 @media(min-width:768px){.ft-row{gap:14px;padding:14px 0;flex-wrap:nowrap}}
@@ -564,15 +575,28 @@ function renderTrilhas(uniq){
       </div>
     </div>`;
   }).join('');
-  const resumo=`<div class="card" style="margin-bottom:18px"><h3>Média geral das trilhas</h3><div class="d">Média das ${TRILHAS.length} trilhas — cada produto usa apenas os alunos que efetivamente o têm como sua base.</div>
-    <div style="display:flex;gap:80px;flex-wrap:wrap;margin-top:20px">
-      <div style="min-width:200px">
-        <div style="font-family:JetBrains Mono;font-size:42px;font-weight:700;color:var(--accent);letter-spacing:-2px;line-height:1">${fP(mediaGeral)}</div>
-        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:10px">consumo médio dos produtos</div>
-      </div>
-      <div style="min-width:200px">
-        <div style="font-family:JetBrains Mono;font-size:42px;font-weight:700;color:var(--t2);letter-spacing:-2px;line-height:1">${fN(totalAlunosProdutos)}</div>
-        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:10px">total de matrículas nos produtos</div>
+  // Gráfico de colunas: média por produto (0 a 100%)
+  const chartSorted=[...stats].sort((a,b)=>b.mediaIniciados-a.mediaIniciados);
+  const barPalette=['#8b7cf7','#a78bfa','#2dd4bf','#34d399','#38bdf8','#22d3ee','#fbbf24','#fb923c','#f472b6','#f87171','#a78bfa','#8b7cf7','#2dd4bf','#34d399'];
+  const shortName=n=>{ if(!n) return ''; n=n.replace(/^Financiamento /,'Fin.').replace(/MARKETING/,'Mkt').replace(/TRÁFEGO/,'Tráfego').replace(/ COM .+$/,''); return n.length>22?n.slice(0,20)+'…':n; };
+  const bars=chartSorted.map((s,i)=>{
+    const col=barPalette[i%barPalette.length];
+    const h=Math.max(s.mediaIniciados,1.5); // altura percentual direta (0-100)
+    return `<div class="prog-bar" style="height:${h}%;background:${col}" title="${s.nome}: ${fP(s.mediaIniciados)} (${fN(s.iniciados)} alunos)"><span class="prog-pct">${fP(s.mediaIniciados)}</span></div>`;
+  }).join('');
+  const labels=chartSorted.map(s=>`<div class="prog-lbl" title="${s.nome}">${shortName(s.nome)}</div>`).join('');
+
+  const resumo=`<div class="card" style="margin-bottom:18px"><h3>Média geral das trilhas</h3><div class="d">Média das ${TRILHAS.length} trilhas — cada produto usa apenas os alunos que efetivamente o têm como sua base. Segue o filtro global.</div>
+    <div style="margin-top:20px">
+      <div style="font-family:JetBrains Mono;font-size:42px;font-weight:700;color:var(--accent);letter-spacing:-2px;line-height:1">${fP(mediaGeral)}</div>
+      <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:10px">média geral dos produtos</div>
+    </div>
+    <div style="margin-top:32px">
+      <div style="font-size:13px;font-weight:600;color:var(--t2);margin-bottom:6px">Consumo médio por produto (0 a 100%)</div>
+      <div class="prog-area" style="height:340px;padding-top:12px;position:relative">
+        <div style="position:absolute;left:8px;top:12px;bottom:40px;display:flex;flex-direction:column;justify-content:space-between;font-size:10px;color:var(--t3);font-family:'JetBrains Mono'"><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0%</span></div>
+        <div class="prog-bars" style="padding-left:40px;padding-right:16px">${bars}</div>
+        <div class="prog-labels" style="padding-left:40px;padding-right:16px">${labels}</div>
       </div>
     </div>
   </div>`;
