@@ -435,11 +435,13 @@ function trilhaStats(rows){
 function renderAll(rows){ renderGeral(rows); renderTrilhas(rows); renderAlunos(rows); }
 
 function renderGeral(rows){
-  const total=rows.length;
-  const totals=rows.map(r=>r.total).filter(v=>typeof v==='number');
+  // KPIs globais usam alunos ÚNICOS (1 linha por email) para não contar duplicados
+  const uniq=dedupeRows(rows);
+  const total=uniq.length;
+  const totals=uniq.map(r=>r.total).filter(v=>typeof v==='number');
   const media=avg(totals);
   let inat=0, nunca=0, ativos=0;
-  rows.forEach(r=>{const s=statusAluno(r); if(s==='inativo')inat++; else if(s==='nunca')nunca++; else ativos++;});
+  uniq.forEach(r=>{const s=statusAluno(r); if(s==='inativo')inat++; else if(s==='nunca')nunca++; else ativos++;});
   const pctInat=total?inat/total*100:0;
   const pctNunca=total?nunca/total*100:0;
   const pctAt=total?ativos/total*100:0;
@@ -450,7 +452,7 @@ function renderGeral(rows){
   const maisIniciada=[...stats].sort((a,b)=>b.iniciados-a.iniciados)[0];
   // Alunos que NUNCA iniciaram NENHUMA trilha (zero absoluto em todas)
   let zeroAbs=0;
-  rows.forEach(r=>{
+  uniq.forEach(r=>{
     const vs=TRILHAS.map(n=>r.trilhas?r.trilhas[n]:null).filter(v=>typeof v==='number');
     if(vs.length && vs.every(v=>v===0)) zeroAbs++;
   });
@@ -522,7 +524,8 @@ function renderTrilhas(rows){
 let AL_PAGE=1, AL_SORT='total', AL_DIR=-1, AL_SEARCH='', AL_ROWS=[], AL_MOUNTED=false;
 
 function renderAlunos(rows){
-  AL_ROWS=rows; AL_PAGE=1;
+  // Tabela de alunos mostra alunos ÚNICOS (dedupe por email)
+  AL_ROWS=dedupeRows(rows); AL_PAGE=1;
   mountAlunos();
   drawAlunos();
 }
