@@ -329,6 +329,7 @@ async function loadData(){
       if(t.email) trilhaMap.set(t.email.toLowerCase(),t);
     });
 
+    window._TRILHAS_RAW=D.trilhas||[];
     ROWS=FPRO.map(f=>{
       const tr=trilhaMap.get(f.email)||trilhaMap.get(f.email2)||null;
       return {
@@ -394,8 +395,16 @@ function hideTip(){if(_tip)_tip.classList.remove('show');}
 /* ===== STATUS LOGIC ===== */
 // Ativo = dtFimAcesso NOT passed; Inativo = dtFimAcesso HAS passed
 // Sem acessar +30d = ultAcesso > 30 days ago; Nunca acessou = no ultAcesso
-function isAtivo(r){ return r.dtFimAcesso && r.dtFimAcesso > NOW; }
-function isInativo(r){ return r.dtFimAcesso && r.dtFimAcesso <= NOW; }
+function isAtivo(r){
+  // Vitalício = always active
+  const o=(r.oferta||'').toLowerCase(),rec=(r.recorrencia||'').toLowerCase();
+  if(o.includes('vital')||rec.includes('vital')) return true;
+  // Extensão with non-expired date
+  if(r.extensao&&r.extensao.trim()&&r.dtFimAcesso&&r.dtFimAcesso>NOW) return true;
+  // Regular: dtFimAcesso not passed
+  return r.dtFimAcesso && r.dtFimAcesso > NOW;
+}
+function isInativo(r){ return !isAtivo(r); }
 function semAcesso30(r){ return r.ultAcesso && (NOW - r.ultAcesso) > 30*DAY; }
 function nuncaAcessou(r){ return !r.ultAcesso; }
 
@@ -540,12 +549,34 @@ function renderGeral(rows){
   const menos=[...stats].filter(s=>s.max>0).sort((a,b)=>a.media-b.media)[0];
   const maisIniciada=[...stats].sort((a,b)=>b.iniciados-a.iniciados)[0];
 
+  // Ativos = FPRO alunos com acesso vigente (vitalício, extensão válida, ou dtFimAcesso no futuro)
+  const ativosCount=FPRO.filter(f=>{
+    const o=(f.oferta||'').toLowerCase(),rec=(f.recorrencia||'').toLowerCase();
+    if(o.includes('vital')||rec.includes('vital')) return true;
+    if(f.extensao&&f.extensao.trim()&&f.dtFimAcesso&&f.dtFimAcesso>NOW) return true;
+    return f.dtFimAcesso && f.dtFimAcesso > NOW;
+  }).length;
+
+  // Nunca acessaram = FPRO + MCMV students with no ultAcesso
+  const fproEmails2=new Set(FPRO.map(f=>f.email));
+  const mcmvEmails2=new Set(MCMV.map(m=>m.email));
+  const allEmails2=new Set([...fproEmails2,...mcmvEmails2]);
+  const trilhaMap2=new Map();
+  (window._TRILHAS_RAW||[]).forEach(t=>{if(t.email)trilhaMap2.set(t.email,t);});
+  let nuncaTotal=0;
+  allEmails2.forEach(em=>{
+    const tr=trilhaMap2.get(em);
+    if(!tr||!tr.ultAcesso) nuncaTotal++;
+  });
+  const pctNuncaTotal=allEmails2.size?nuncaTotal/allEmails2.size*100:0;
+
   const kpis=`<div class="kpis">
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total de Alunos</div><div class="kpi-v">${fN(total)}</div><div class="kpi-s">Financiamento Pro</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Ativos no Curso</div><div class="kpi-v">${fN(ativosCount)}</div><div class="kpi-s">${fP(FPRO.length?ativosCount/FPRO.length*100:0)} da base FPRO</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--cyan),var(--sky))"></div><div class="kpi-l">Especialista MCMV</div><div class="kpi-v">${fN(MCMV.length)}</div><div class="kpi-s">Alunos do produto MCMV</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">Media Consumo</div><div class="kpi-v">${fP(media)}</div><div class="kpi-s">${stats.length} trilha${stats.length>1?'s':''}</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--red))"></div><div class="kpi-l">Sem acessar +30d</div><div class="kpi-v">${fN(sem30)}</div><div class="kpi-s">${fP(pctSem30)} da base</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Nunca Acessaram</div><div class="kpi-v">${fN(nunca)}</div><div class="kpi-s">${fP(pctNunca)} da base</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Nunca Acessaram</div><div class="kpi-v">${fN(nuncaTotal)}</div><div class="kpi-s">${fP(pctNuncaTotal)} (FPRO + MCMV)</div></div>
   </div>`;
 
   const legend=`<div class="legend-box">
@@ -836,11 +867,15 @@ function renderRenov(rows){
   // Vencem 31-60d
   const vencem60=withVenc.filter(x=>x.dias!==null&&x.dias>30&&x.dias<=60&&(!x.f.renovacao||!x.f.renovacao.trim()));
 
-  let h=`<div class="kpis">
+  // Vencem 61-90d
+  const vencem90=withVenc.filter(x=>x.dias!==null&&x.dias>60&&x.dias<=90&&(!x.f.renovacao||!x.f.renovacao.trim()));
+
+  let h=`<div class="kpis" style="grid-template-columns:repeat(5,1fr)">
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Ja Renovaram</div><div class="kpi-v">${fN(jaRenovaram.length)}</div><div class="kpi-s">${fP(FPRO.length?jaRenovaram.length/FPRO.length*100:0)} da base</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Vencidos</div><div class="kpi-v">${fN(vencidos.length)}</div><div class="kpi-s">Acesso expirado, sem renovacao</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--gold))"></div><div class="kpi-l">Vencem 30d</div><div class="kpi-v">${fN(vencem30.length)}</div><div class="kpi-s">Acao urgente</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--gold),var(--sky))"></div><div class="kpi-l">Vencem 31-60d</div><div class="kpi-v">${fN(vencem60.length)}</div><div class="kpi-s">Planejar abordagem</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Vencem 61-90d</div><div class="kpi-v">${fN(vencem90.length)}</div><div class="kpi-s">Aquecer contato</div></div>
   </div>`;
 
   // Renovation by turma chart
@@ -853,31 +888,29 @@ function renderRenov(rows){
     if(f.renovacao&&f.renovacao.trim()) t.renov++;
   });
   const turmaArr=[...turmaMap.entries()].sort((a,b)=>{
-    const na=parseInt((a[0].match(/\d+/)||[0])[0])||0;
-    const nb=parseInt((b[0].match(/\d+/)||[0])[0])||0;
-    return na-nb;
+    // Sort by renovation percentage (main metric)
+    const pctA=a[1].total?a[1].renov/a[1].total*100:0;
+    const pctB=b[1].total?b[1].renov/b[1].total*100:0;
+    return pctB-pctA;
   });
 
   if(turmaArr.length>0){
-    const maxTotal=Math.max(...turmaArr.map(([,v])=>v.total),1);
+    const maxPctRenov=Math.max(...turmaArr.map(([,v])=>v.total?v.renov/v.total*100:0),1);
     const colPalette=['#8b7cf7','#34d399','#38bdf8','#fb923c','#f472b6','#22d3ee','#fbbf24','#a78bfa','#2dd4bf','#f87171'];
-    h+=`<div class="sec">Renovacao por turma</div>
-    <div class="card"><h3>Renovacao por turma</h3><div class="d">Quantidade renovada vs total por turma</div>
-    <div class="prog-area" style="height:340px;padding-top:12px;position:relative">
-      <div class="prog-bars" style="padding:24px 16px 0">
-        ${turmaArr.map(([turma,v],i)=>{
-          const h2=Math.max(v.total/maxTotal*100,3);
-          const pct=v.total?v.renov/v.total*100:0;
-          const col=colPalette[i%colPalette.length];
-          const tip=`<div class=tt-title>${turma}</div><div class=tt-row><span class=tt-label>Total:</span><span class=tt-value>${fN(v.total)}</span></div><div class=tt-row><span class=tt-label>Renovaram:</span><span class=tt-value>${fN(v.renov)}</span></div><div class=tt-row><span class=tt-label>%:</span><span class=tt-value>${fP(pct)}</span></div>`;
-          return `<div class="prog-bar" style="height:${h2}%;background:${col};position:relative" onmouseenter="showTip(event,'${tip}')" onmousemove="showTip(event,'${tip}')" onmouseleave="hideTip()">
-            <span class="prog-pct">${fN(v.renov)}/${fN(v.total)}</span>
-          </div>`;
-        }).join('')}
-      </div>
-      <div class="prog-labels" style="padding:8px 16px 12px">
-        ${turmaArr.map(([turma])=>`<div class="prog-lbl">${turma}</div>`).join('')}
-      </div>
+    h+=`<div class="sec">Percentual de Renovacao por Turma</div>
+    <div class="card"><h3>Alunos que renovaram por turma</h3><div class="d">Ordenado por percentual de renovacao (principal metrica)</div>
+    <div style="display:flex;align-items:flex-end;gap:8px;padding:20px 0;min-height:260px;overflow-x:auto">
+      ${turmaArr.map(([turma,v],i)=>{
+        const pct=v.total?v.renov/v.total*100:0;
+        const barH=Math.max(Math.round(pct/maxPctRenov*200),12);
+        const col=colPalette[i%colPalette.length];
+        return `<div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:55px" title="${turma}: ${v.renov}/${v.total} (${pct.toFixed(1)}%)">
+          <span style="font-size:11px;font-weight:700;color:${col};margin-bottom:4px">${pct.toFixed(1)}%</span>
+          <div style="width:100%;max-width:48px;height:${barH}px;background:${col};border-radius:6px 6px 0 0;transition:height .5s"></div>
+          <span style="font-size:10px;color:var(--t3);margin-top:6px;text-align:center;line-height:1.2">${turma.replace(/TURMA \d+ - /,'T')}</span>
+          <span style="font-size:9px;color:var(--t3)">${v.renov}/${v.total}</span>
+        </div>`;
+      }).join('')}
     </div></div>`;
   }
 
@@ -901,9 +934,9 @@ function renderRenov(rows){
       const f=x.f;
       const venc=x.dias<0;
       const renov=f.renovacao&&f.renovacao.trim();
-      const st=renov?'Renovado':(venc?'Vencido':(x.dias<=30?'Urgente':(x.dias<=60?'Atentar':'Vigente')));
-      const col=renov?'var(--green)':(venc?'var(--red)':(x.dias<=30?'var(--orange)':(x.dias<=60?'var(--gold)':'var(--teal)')));
-      const bg=renov?'rgba(52,211,153,.12)':(venc?'rgba(248,113,113,.12)':(x.dias<=30?'rgba(251,146,60,.12)':(x.dias<=60?'rgba(251,191,36,.12)':'rgba(45,212,191,.12)')));
+      const st=renov?'Renovado':(venc?'Vencido':(x.dias<=30?'Urgente':(x.dias<=60?'Atentar':(x.dias<=90?'Planejar':'Vigente'))));
+      const col=renov?'var(--green)':(venc?'var(--red)':(x.dias<=30?'var(--orange)':(x.dias<=60?'var(--gold)':(x.dias<=90?'var(--sky)':'var(--teal)'))));
+      const bg=renov?'rgba(52,211,153,.12)':(venc?'rgba(248,113,113,.12)':(x.dias<=30?'rgba(251,146,60,.12)':(x.dias<=60?'rgba(251,191,36,.12)':(x.dias<=90?'rgba(56,189,248,.12)':'rgba(45,212,191,.12)'))));
       return `<tr>
         <td><div style="color:var(--t1);font-weight:600">${f.nome||'-'}</div><div style="font-size:11px;color:var(--t3)">${f.email||''}</div></td>
         <td style="font-size:12px">${f.turma||'-'}</td>
