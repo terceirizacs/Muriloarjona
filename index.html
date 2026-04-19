@@ -397,15 +397,21 @@ function hideTip(){if(_tip)_tip.classList.remove('show');}
 // Ativo = dtFimAcesso NOT passed; Inativo = dtFimAcesso HAS passed
 // Sem acessar +30d = ultAcesso > 30 days ago; Nunca acessou = no ultAcesso
 function isAtivo(r){
-  // Usar coluna Y (TCS ativo): Ativo ou Ativo Vitalício
-  const tcs=(r.tcsAtivo||'').toLowerCase();
-  return tcs.includes('ativo');
+  // Excluir status inválidos
+  const st=(r.status||'').toUpperCase();
+  if(st==='BLOQUEADO'||st==='REEMBOLSADO'||st==='CHARGEBACK'||st==='CANCELADO'||st==='INADIMPLENTE'||st.includes('CONSULTAR')) return false;
+  // Vitalício na J ou M = ativo
+  if((r.dtFimAcessoRaw||'').toLowerCase().includes('vital')) return true;
+  // M (dtFimRenov) não venceu = ativo (renovação válida)
+  if(r.dtFimRenov && r.dtFimRenov > NOW) return true;
+  // J (dtFimAcesso) não venceu = ativo
+  if(r.dtFimAcesso && r.dtFimAcesso > NOW) return true;
+  return false;
 }
 function isVitalicio(r){
-  const tcs=(r.tcsAtivo||'').toLowerCase();
-  return tcs.includes('vitalício') || tcs.includes('vitalicio');
+  return (r.dtFimAcessoRaw||'').toLowerCase().includes('vital');
 }
-function isInativo(r){ return (r.tcsAtivo||'').toLowerCase().includes('vencido'); }
+function isInativo(r){ return !isAtivo(r); }
 function semAcesso30(r){ return r.ultAcesso && (NOW - r.ultAcesso) > 30*DAY; }
 function nuncaAcessou(r){ return !r.ultAcesso; }
 
@@ -558,26 +564,13 @@ function renderGeral(rows){
     return f.dtFimAcesso && f.dtFimAcesso > NOW;
   }).length;
 
-  // Nunca acessaram = FPRO + MCMV students with no ultAcesso
-  const fproEmails2=new Set(FPRO.map(f=>f.email));
-  const mcmvEmails2=new Set(MCMV.map(m=>m.email));
-  const allEmails2=new Set([...fproEmails2,...mcmvEmails2]);
-  const trilhaMap2=new Map();
-  (window._TRILHAS_RAW||[]).forEach(t=>{if(t.email)trilhaMap2.set(t.email,t);});
-  let nuncaTotal=0;
-  allEmails2.forEach(em=>{
-    const tr=trilhaMap2.get(em);
-    if(!tr||!tr.ultAcesso) nuncaTotal++;
-  });
-  const pctNuncaTotal=allEmails2.size?nuncaTotal/allEmails2.size*100:0;
-
   const kpis=`<div class="kpis">
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total de Alunos</div><div class="kpi-v">${fN(total)}</div><div class="kpi-s">FPRO: ${fN(FPRO.length)} + MCMV: ${fN(MCMV.length)}</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Ativos no Curso</div><div class="kpi-v">${fN(ativosCount)}</div><div class="kpi-s">${fP(FPRO.length?ativosCount/FPRO.length*100:0)} da base FPRO</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--cyan),var(--sky))"></div><div class="kpi-l">Especialista MCMV</div><div class="kpi-v">${fN(MCMV.length)}</div><div class="kpi-s">Alunos do produto MCMV</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">Media Consumo</div><div class="kpi-v">${fP(media)}</div><div class="kpi-s">${stats.length} trilha${stats.length>1?'s':''}</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--red))"></div><div class="kpi-l">Sem acessar +30d</div><div class="kpi-v">${fN(sem30)}</div><div class="kpi-s">${fP(pctSem30)} da base</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Nunca Acessaram</div><div class="kpi-v">${fN(nuncaTotal)}</div><div class="kpi-s">${fP(pctNuncaTotal)} (FPRO + MCMV)</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Nunca Acessaram</div><div class="kpi-v">${fN(nuncaAtivos)}</div><div class="kpi-s">${fP(pctNuncaAt)} dos ativos</div></div>
   </div>`;
 
   const legend=`<div class="legend-box">
@@ -615,7 +608,7 @@ function renderGeral(rows){
       ${mais?`<div class="ins ok"><div class="ins-t">Trilha mais consumida</div><div class="ins-p"><strong>${mais.nome}</strong> - media de ${fP(mais.media)}. ${fN(mais.iniciados)} alunos iniciaram (${fP(mais.pctIniciou)} do total).</div></div>`:''}
       ${menos?`<div class="ins w"><div class="ins-t">Trilha menos consumida</div><div class="ins-p"><strong>${menos.nome}</strong> - apenas ${fP(menos.media)} de media. Somente ${fN(menos.iniciados)} alunos iniciaram.</div></div>`:''}
       ${maisIniciada?`<div class="ins i"><div class="ins-t">Trilha com mais alunos engajados</div><div class="ins-p"><strong>${maisIniciada.nome}</strong> - ${fN(maisIniciada.iniciados)} alunos ja iniciaram (${fP(maisIniciada.pctIniciou)} do total).</div></div>`:''}
-      <div class="ins w"><div class="ins-t">Ativos que nunca fizeram login</div><div class="ins-p"><strong>${fN(nuncaAtivos)}</strong> alunos ativos (${fP(pctNuncaAt)}) ainda nao acessaram a plataforma.</div></div>
+      <div class="ins w"><div class="ins-t">Ativos que nunca fizeram login</div><div class="ins-p"><strong>${fN(nuncaAtivos)}</strong> alunos ativos (${fP(pctNuncaAt)} dos ativos) ainda nao acessaram a plataforma.</div></div>
       <div class="ins ok"><div class="ins-t">Alunos ativos</div><div class="ins-p"><strong>${fN(ativosCount)}</strong> alunos com acesso vigente. <strong>${fN(vitalicioCount)}</strong> sao vitalicios.</div></div>
     </div>`;
 
