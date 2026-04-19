@@ -343,6 +343,7 @@ async function loadData(){
         dtVenda: f.dtVenda,
         extensao: f.extensao,
         dtFimAcesso: f.dtFimAcesso,
+        dtFimAcessoRaw: f.dtFimAcessoRaw||'',
         renovacao: f.renovacao,
         dtVendaRenov: f.dtVendaRenov,
         dtFimRenov: f.dtFimRenov,
@@ -396,13 +397,16 @@ function hideTip(){if(_tip)_tip.classList.remove('show');}
 // Ativo = dtFimAcesso NOT passed; Inativo = dtFimAcesso HAS passed
 // Sem acessar +30d = ultAcesso > 30 days ago; Nunca acessou = no ultAcesso
 function isAtivo(r){
-  // Vitalício = always active
-  const o=(r.oferta||'').toLowerCase(),rec=(r.recorrencia||'').toLowerCase();
-  if(o.includes('vital')||rec.includes('vital')) return true;
-  // Extensão with non-expired date
-  if(r.extensao&&r.extensao.trim()&&r.dtFimAcesso&&r.dtFimAcesso>NOW) return true;
-  // Regular: dtFimAcesso not passed
-  return r.dtFimAcesso && r.dtFimAcesso > NOW;
+  // Vitalício na coluna J = always active
+  if((r.dtFimAcessoRaw||'').toLowerCase().includes('vital')) return true;
+  // Vitalício na coluna K (renovação) = active
+  if((r.renovacao||'').toLowerCase().includes('vital')) return true;
+  // J não venceu = ativo
+  if(r.dtFimAcesso && r.dtFimAcesso > NOW) return true;
+  // J venceu, mas tem renovação: checar M (dtFimRenov) ou L (dtVendaRenov)
+  if(r.dtFimRenov && r.dtFimRenov > NOW) return true;
+  if(r.dtVendaRenov && r.dtVendaRenov > NOW) return true;
+  return false;
 }
 function isInativo(r){ return !isAtivo(r); }
 function semAcesso30(r){ return r.ultAcesso && (NOW - r.ultAcesso) > 30*DAY; }
@@ -580,10 +584,11 @@ function renderGeral(rows){
   </div>`;
 
   const legend=`<div class="legend-box">
-    <div class="lg-item"><span class="lg-dot" style="background:var(--green)"></span><strong>Ativo:</strong> acesso ainda nao venceu (dtFimAcesso no futuro)</div>
-    <div class="lg-item"><span class="lg-dot" style="background:var(--red)"></span><strong>Inativo:</strong> acesso vencido (dtFimAcesso passou)</div>
-    <div class="lg-item"><span class="lg-dot" style="background:var(--orange)"></span><strong>Sem acessar +30d:</strong> ultimo acesso ha mais de 30 dias</div>
-    <div class="lg-item"><span class="lg-dot" style="background:var(--accent)"></span><strong>Nunca acessou:</strong> nenhum acesso registrado na plataforma</div>
+    <div class="lg-item"><span class="lg-dot" style="background:var(--green)"></span><strong>Ativo:</strong> data fim de acesso nao passou (ou vitalicio, ou renovado)</div>
+    <div class="lg-item"><span class="lg-dot" style="background:var(--red)"></span><strong>Inativo:</strong> data fim de acesso passou</div>
+    <div class="lg-item"><span class="lg-dot" style="background:var(--sky)"></span><strong>Vitalicio:</strong> acesso permanente</div>
+    <div class="lg-item"><span class="lg-dot" style="background:var(--orange)"></span><strong>Sem acessar +30d:</strong> ativo, porem sem acessar ha mais de 30 dias</div>
+    <div class="lg-item"><span class="lg-dot" style="background:var(--accent)"></span><strong>Nunca acessou:</strong> ativo, porem nunca fez login na plataforma</div>
   </div>`;
 
   // Ranking hbar
@@ -613,8 +618,8 @@ function renderGeral(rows){
       ${mais?`<div class="ins ok"><div class="ins-t">Trilha mais consumida</div><div class="ins-p"><strong>${mais.nome}</strong> - media de ${fP(mais.media)}. ${fN(mais.iniciados)} alunos iniciaram (${fP(mais.pctIniciou)} do total).</div></div>`:''}
       ${menos?`<div class="ins w"><div class="ins-t">Trilha menos consumida</div><div class="ins-p"><strong>${menos.nome}</strong> - apenas ${fP(menos.media)} de media. Somente ${fN(menos.iniciados)} alunos iniciaram.</div></div>`:''}
       ${maisIniciada?`<div class="ins i"><div class="ins-t">Trilha com mais alunos engajados</div><div class="ins-p"><strong>${maisIniciada.nome}</strong> - ${fN(maisIniciada.iniciados)} alunos ja iniciaram (${fP(maisIniciada.pctIniciou)} do total).</div></div>`:''}
-      <div class="ins w"><div class="ins-t">Alunos que nunca fizeram login</div><div class="ins-p"><strong>${fN(nunca)}</strong> alunos (${fP(pctNunca)}) compraram mas nunca acessaram a plataforma.</div></div>
-      <div class="ins ok"><div class="ins-t">Alunos ativos</div><div class="ins-p"><strong>${fN(ativos)}</strong> alunos com acesso vigente e em dia.</div></div>
+      <div class="ins w"><div class="ins-t">Ativos que nunca fizeram login</div><div class="ins-p"><strong>${fN(nuncaAtivos)}</strong> alunos ativos (${fP(pctNuncaAt)}) ainda nao acessaram a plataforma.</div></div>
+      <div class="ins ok"><div class="ins-t">Alunos ativos</div><div class="ins-p"><strong>${fN(ativosCount)}</strong> alunos com acesso vigente. <strong>${fN(vitalicioCount)}</strong> sao vitalicios.</div></div>
     </div>`;
 
   document.getElementById('cGeral').innerHTML=kpis+legend+rank+insights;
@@ -834,7 +839,7 @@ function renderFinanceiro(){
     if(!window._FIN_PAGE) window._FIN_PAGE=1;
     const finSlice=mcmvOnly.slice((window._FIN_PAGE-1)*finPer,window._FIN_PAGE*finPer);
     h+=`<div class="sec">Potencial de cross-sell (${fN(mcmvOnly.length)} alunos MCMV sem FPRO)</div>
-    <div class="card"><div style="overflow-x:auto"><table class="det-table">
+    <div class="card"><div style="overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none"><table class="det-table">
       <thead><tr><th>Aluno</th><th>Email</th><th>Turma MCMV</th><th>Data Compra MCMV</th></tr></thead>
       <tbody>${finSlice.map(m=>`<tr>
         <td style="color:var(--t1);font-weight:600">${m.nome||'-'}</td>
@@ -870,8 +875,20 @@ function renderRenov(rows){
   // Use FPRO data for renovation
   const hoje=new Date(NOW);hoje.setHours(0,0,0,0);const hojeMs=hoje.getTime();
 
-  // Ja renovaram = renovacao not empty
-  const jaRenovaram=FPRO.filter(f=>f.renovacao&&f.renovacao.trim()!=='');
+  // Ja renovaram = renovacao not empty, excluding: cancelou, não renovou, blank
+  // If vitalício in BOTH J and K = was always vitalício (don't count)
+  // If vitalício ONLY in K (J has date) = upgraded to vitalício (count)
+  function isValidRenov(f){
+    const k=(f.renovacao||'').trim().toLowerCase();
+    if(!k) return false;
+    if(k.includes('cancel')) return false;
+    if(k.includes('não renov')||k.includes('nao renov')) return false;
+    const jVital=(f.dtFimAcessoRaw||'').toLowerCase().includes('vital');
+    const kVital=k.includes('vital');
+    if(jVital&&kVital) return false; // Was always vitalício
+    return true;
+  }
+  const jaRenovaram=FPRO.filter(f=>isValidRenov(f));
   
   // Determine effective end date: if renovated use dtFimRenov, else dtFimAcesso
   const withVenc=FPRO.map(f=>{
@@ -881,12 +898,13 @@ function renderRenov(rows){
     return {f,dias,venc:endDate};
   });
 
-  // Vencidos = dtFimAcesso passed and not renovated
-  const vencidos=withVenc.filter(x=>x.dias!==null&&x.dias<0&&(!x.f.renovacao||!x.f.renovacao.trim()));
+  // Vencidos = dtFimAcesso passed and not validly renewed
+  const notRenewed=x=>!isValidRenov(x.f)&&!(x.f.dtFimAcessoRaw||'').toLowerCase().includes('vital');
+  const vencidos=withVenc.filter(x=>x.dias!==null&&x.dias<0&&notRenewed(x));
   // Vencem 30d
-  const vencem30=withVenc.filter(x=>x.dias!==null&&x.dias>=0&&x.dias<=30&&(!x.f.renovacao||!x.f.renovacao.trim()));
+  const vencem30=withVenc.filter(x=>x.dias!==null&&x.dias>=0&&x.dias<=30&&notRenewed(x));
   // Vencem 31-60d
-  const vencem60=withVenc.filter(x=>x.dias!==null&&x.dias>30&&x.dias<=60&&(!x.f.renovacao||!x.f.renovacao.trim()));
+  const vencem60=withVenc.filter(x=>x.dias!==null&&x.dias>30&&x.dias<=60&&notRenewed(x));
 
   // Vencem 61-90d
   const vencem90=withVenc.filter(x=>x.dias!==null&&x.dias>60&&x.dias<=90&&(!x.f.renovacao||!x.f.renovacao.trim()));
@@ -906,30 +924,33 @@ function renderRenov(rows){
     if(!turmaMap.has(f.turma)) turmaMap.set(f.turma,{total:0,renov:0});
     const t=turmaMap.get(f.turma);
     t.total++;
-    if(f.renovacao&&f.renovacao.trim()) t.renov++;
+    if(isValidRenov(f)) t.renov++;
   });
   const turmaArr=[...turmaMap.entries()].sort((a,b)=>{
-    // Sort by renovation percentage (main metric)
-    const pctA=a[1].total?a[1].renov/a[1].total*100:0;
-    const pctB=b[1].total?b[1].renov/b[1].total*100:0;
-    return pctB-pctA;
+    // Sort by turma number (chronological)
+    const na=parseInt((a[0].match(/\d+/)||[0])[0])||0;
+    const nb=parseInt((b[0].match(/\d+/)||[0])[0])||0;
+    return na-nb;
   });
 
   if(turmaArr.length>0){
     const maxPctRenov=Math.max(...turmaArr.map(([,v])=>v.total?v.renov/v.total*100:0),1);
     const colPalette=['#8b7cf7','#34d399','#38bdf8','#fb923c','#f472b6','#22d3ee','#fbbf24','#a78bfa','#2dd4bf','#f87171'];
+    const totalRenov=jaRenovaram.length;
     h+=`<div class="sec">Percentual de Renovacao por Turma</div>
-    <div class="card"><h3>Alunos que renovaram por turma</h3><div class="d">Ordenado por percentual de renovacao (principal metrica)</div>
-    <div style="display:flex;align-items:flex-end;gap:8px;padding:20px 0;min-height:260px;overflow-x:auto">
+    <div class="card"><h3>Renovacao por turma</h3><div class="d">Total: ${fN(totalRenov)} renovacoes validas. Ordenado por turma (cronologico).</div>
+    <div class="hbar-area">
       ${turmaArr.map(([turma,v],i)=>{
         const pct=v.total?v.renov/v.total*100:0;
-        const barH=Math.max(Math.round(pct/maxPctRenov*200),12);
+        const w=Math.max(pct/maxPctRenov*100,1);
         const col=colPalette[i%colPalette.length];
-        return `<div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:55px" title="${turma}: ${v.renov}/${v.total} (${pct.toFixed(1)}%)">
-          <span style="font-size:11px;font-weight:700;color:${col};margin-bottom:4px">${pct.toFixed(1)}%</span>
-          <div style="width:100%;max-width:48px;height:${barH}px;background:${col};border-radius:6px 6px 0 0;transition:height .5s"></div>
-          <span style="font-size:10px;color:var(--t3);margin-top:6px;text-align:center;line-height:1.2">${turma.replace(/TURMA \d+ - /,'T')}</span>
-          <span style="font-size:9px;color:var(--t3)">${v.renov}/${v.total}</span>
+        return `<div class="hbar-row" title="${turma}: ${v.renov}/${v.total} (${pct.toFixed(1)}%)">
+          <div class="hbar-lbl">${turma.replace('TURMA ','T').replace(/ - /,' ')}</div>
+          <div class="hbar-track"><div class="hbar-fill" style="width:${w}%;background:${col}">${pct>=3?pct.toFixed(1)+'%':''}</div></div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;min-width:120px;margin-left:8px">
+            <div style="font-family:JetBrains Mono;font-size:14px;font-weight:700;color:${col}">${pct.toFixed(1)}%</div>
+            <div style="font-family:JetBrains Mono;font-size:11px;color:var(--t3)">${fN(v.renov)} / ${fN(v.total)}</div>
+          </div>
         </div>`;
       }).join('')}
     </div></div>`;
@@ -942,7 +963,7 @@ function renderRenov(rows){
   const slice=tableRows.slice((RN_PAGE-1)*per,RN_PAGE*per);
 
   h+=`<div class="sec">Alunos - ${fN(tableRows.length)} registros</div>
-  <div class="card"><div style="overflow-x:auto"><table class="det-table">
+  <div class="card"><div style="overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none"><table class="det-table">
     <thead><tr>
       <th>Aluno</th>
       <th>Turma</th>
