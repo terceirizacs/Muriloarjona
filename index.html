@@ -358,6 +358,10 @@ async function loadData(){
     // Dedup por email
     const fproEmailSet=new Set();FPRO.forEach(f=>{if(f.email)fproEmailSet.add(f.email);});
     window.FPRO_TOTAL=fproEmailSet.size;
+    // Dedup ROWS por email (manter o mais recente)
+    const rowMap=new Map();
+    ROWS.forEach(r=>{if(r.email){const cur=rowMap.get(r.email);if(!cur||(r.ultAcesso||0)>(cur.ultAcesso||0))rowMap.set(r.email,r);}});
+    ROWS=[...rowMap.values()];
     const mcmvOnly=MCMV.filter(m=>m.email&&!fproEmailSet.has(m.email));
     const mcmvOnlyEmails=new Set(mcmvOnly.map(m=>m.email));
     window.MCMV_ONLY=mcmvOnlyEmails.size;
@@ -483,7 +487,7 @@ function applyFilters(){
   getMS('fStatus').forEach(v=>tags.push(v));
   const a=document.getElementById('tagsArea');
   a.innerHTML=tags.length
-    ?tags.map(t=>'<div class="filter-tag">'+t+'</div>').join('')+'<span class="results-badge">-> '+fN(rows.length)+' alunos</span>'
+    ?tags.map(t=>'<div class="filter-tag">'+t+'</div>').join('')+'<span class="results-badge">→ '+fN(rows.length)+' alunos</span>'
     :'<div class="filter-tag neutral">Nenhum filtro ativo</div>';
   renderAll(rows);
 }
@@ -672,7 +676,7 @@ function renderTrilhas(rows){
   }).join('');
   const labels=chartSorted.map(s=>`<div class="prog-lbl" title="${s.nome}">${shortName(s.nome)}</div>`).join('');
 
-  const resumo=`<div class="card" style="margin-bottom:18px"><h3>Media geral ${prodSel.length?'(filtrado)':'das trilhas'}</h3><div class="d">Base: todos os ${fN(rows.length)} alunos FPRO em ${TRILHAS.length} trilhas.</div>
+  const resumo=`<div class="card" style="margin-bottom:18px"><h3>Media geral ${prodSel.length?'(filtrado)':'das trilhas'}</h3><div class="d">Base: ${fN(rows.length)} alunos FPRO (emails únicos) em ${TRILHAS.length} trilhas.</div>
     <div style="margin-top:20px">
       <div style="font-family:JetBrains Mono;font-size:42px;font-weight:700;color:var(--accent);letter-spacing:-2px;line-height:1">${fP(mediaGeral)}</div>
       <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:10px">media geral dos produtos</div>
