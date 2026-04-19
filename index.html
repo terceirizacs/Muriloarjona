@@ -571,7 +571,7 @@ function renderGeral(rows){
   const pctNuncaTotal=allEmails2.size?nuncaTotal/allEmails2.size*100:0;
 
   const kpis=`<div class="kpis">
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total de Alunos</div><div class="kpi-v">${fN(total)}</div><div class="kpi-s">Financiamento Pro</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total de Alunos</div><div class="kpi-v">${fN(total)}</div><div class="kpi-s">FPRO: ${fN(FPRO.length)} + MCMV: ${fN(MCMV.length)}</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Ativos no Curso</div><div class="kpi-v">${fN(ativosCount)}</div><div class="kpi-s">${fP(FPRO.length?ativosCount/FPRO.length*100:0)} da base FPRO</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--cyan),var(--sky))"></div><div class="kpi-l">Especialista MCMV</div><div class="kpi-v">${fN(MCMV.length)}</div><div class="kpi-s">Alunos do produto MCMV</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">Media Consumo</div><div class="kpi-v">${fP(media)}</div><div class="kpi-s">${stats.length} trilha${stats.length>1?'s':''}</div></div>
@@ -814,25 +814,46 @@ function renderFinanceiro(){
     </div>
   </div>`;
 
-  // Potential cross-sell list
+  // 5) Potencial Vitalício: FPRO que NÃO são vitalícios
+  const potVitalicio=FPRO.filter(f=>{
+    const o=(f.oferta||'').toLowerCase(),r=(f.recorrencia||'').toLowerCase();
+    return !o.includes('vital') && !r.includes('vital');
+  });
+  const pctPotVit=FPRO.length?potVitalicio.length/FPRO.length*100:0;
+
+  // Add KPI for potencial vitalício
+  h+=`<div class="kpis" style="grid-template-columns:repeat(2,1fr);margin-top:20px">
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--gold),var(--orange))"></div><div class="kpi-l">Potencial Vitalicio</div><div class="kpi-v">${fN(potVitalicio.length)}</div><div class="kpi-s">${fP(pctPotVit)} da base FPRO que pode migrar para vitalicio</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Ja sao Vitalicios</div><div class="kpi-v">${fN(fproVitalicio.length)}</div><div class="kpi-s">${fP(FPRO.length?fproVitalicio.length/FPRO.length*100:0)} - base fidelizada</div></div>
+  </div>`;
+
+  // Potential cross-sell list with pagination
   if(mcmvOnly.length>0){
+    const finPer=50,finPages=Math.max(1,Math.ceil(mcmvOnly.length/finPer));
+    if(window._FIN_PAGE>finPages) window._FIN_PAGE=1;
+    if(!window._FIN_PAGE) window._FIN_PAGE=1;
+    const finSlice=mcmvOnly.slice((window._FIN_PAGE-1)*finPer,window._FIN_PAGE*finPer);
     h+=`<div class="sec">Potencial de cross-sell (${fN(mcmvOnly.length)} alunos MCMV sem FPRO)</div>
     <div class="card"><div style="overflow-x:auto"><table class="det-table">
       <thead><tr><th>Aluno</th><th>Email</th><th>Turma MCMV</th><th>Data Compra MCMV</th></tr></thead>
-      <tbody>${mcmvOnly.slice(0,30).map(m=>`<tr>
+      <tbody>${finSlice.map(m=>`<tr>
         <td style="color:var(--t1);font-weight:600">${m.nome||'-'}</td>
         <td style="font-size:12px">${m.email||'-'}</td>
         <td style="font-size:12px">${m.turma||'-'}</td>
         <td style="font-family:JetBrains Mono;font-size:12px">${fmt(m.dtVenda)}</td>
       </tr>`).join('')}</tbody>
     </table></div>
-    ${mcmvOnly.length>30?`<div style="text-align:center;color:var(--t3);font-size:12px;margin-top:12px">Mostrando 30 de ${fN(mcmvOnly.length)} alunos</div>`:''}
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+      <span style="font-family:JetBrains Mono;font-size:12px;color:var(--t3)">Pagina ${window._FIN_PAGE}/${finPages} - ${fN(mcmvOnly.length)} alunos</span>
+      <div class="det-pager">${Array.from({length:finPages},(_,i)=>i+1).filter(p=>p===1||p===finPages||Math.abs(p-window._FIN_PAGE)<=2).map(p=>`<button class="${p===window._FIN_PAGE?'active':''}" onclick="finGo(${p})">${p}</button>`).join('')}</div>
+    </div>
     </div>`;
   }
 
   // Insights
   h+=`<div class="sec">Insights Financeiro</div><div class="ins-g">`;
   if(potentialCross>0) h+=`<div class="ins i"><div class="ins-t">Oportunidade de cross-sell</div><div class="ins-p"><strong>${fN(potentialCross)}</strong> alunos MCMV ainda nao possuem Financiamento Pro. Potencial de conversao.</div></div>`;
+  if(potVitalicio.length>0) h+=`<div class="ins i"><div class="ins-t">Potencial de upgrade vitalicio</div><div class="ins-p"><strong>${fN(potVitalicio.length)}</strong> alunos FPRO podem migrar para o plano vitalicio (${fP(pctPotVit)} da base).</div></div>`;
   if(fproVitalicio.length>0) h+=`<div class="ins ok"><div class="ins-t">Base vitalicia</div><div class="ins-p"><strong>${fN(fproVitalicio.length)}</strong> alunos possuem FPRO vitalicio - base fidelizada que nao precisa renovar.</div></div>`;
   if(fproComExtensao.length>0) h+=`<div class="ins ok"><div class="ins-t">Extensoes ativas</div><div class="ins-p"><strong>${fN(fproComExtensao.length)}</strong> alunos adquiriram extensao do Financiamento Pro.</div></div>`;
   h+=`</div>`;
@@ -961,6 +982,7 @@ function renderRenov(rows){
   cont.innerHTML=h;
 }
 function rnGo(p){RN_PAGE=p;renderRenov(ROWS);}
+function finGo(p){window._FIN_PAGE=p;renderFinanceiro();}
 
 </script>
 </body>
