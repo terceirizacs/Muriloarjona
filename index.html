@@ -355,9 +355,13 @@ async function loadData(){
       };
     });
 
-    // Dedup FPRO por email
-    const fproEmails=new Set();FPRO.forEach(f=>{if(f.email)fproEmails.add(f.email);});
-    window.FPRO_TOTAL=fproEmails.size;
+    // Dedup por email
+    const fproEmailSet=new Set();FPRO.forEach(f=>{if(f.email)fproEmailSet.add(f.email);});
+    window.FPRO_TOTAL=fproEmailSet.size;
+    const mcmvOnly=MCMV.filter(m=>m.email&&!fproEmailSet.has(m.email));
+    const mcmvOnlyEmails=new Set(mcmvOnly.map(m=>m.email));
+    window.MCMV_ONLY=mcmvOnlyEmails.size;
+    window.TOTAL_GERAL=FPRO_TOTAL+MCMV_ONLY;
     initDate();
     buildFilters();
     renderAll();
@@ -575,7 +579,7 @@ function renderGeral(rows){
   const pctNuncaAt=ativosCount?nuncaAtivos/ativosCount*100:0;
 
   const kpis=`<div class="kpis">
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total de Alunos</div><div class="kpi-v">${fN(total)}</div><div class="kpi-s">Financiamento Pro (emails únicos)</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total de Alunos</div><div class="kpi-v">${fN(TOTAL_GERAL)}</div><div class="kpi-s">FPRO: ${fN(FPRO_TOTAL)} + MCMV exclusivos: ${fN(MCMV_ONLY)}</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Ativos no Curso</div><div class="kpi-v">${fN(ativosCount)}</div><div class="kpi-s">${fP(total?ativosCount/total*100:0)} da base</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">Media Consumo</div><div class="kpi-v">${fP(media)}</div><div class="kpi-s">${stats.length} trilha${stats.length>1?'s':''}</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--red))"></div><div class="kpi-l">Sem acessar +30d</div><div class="kpi-v">${fN(sem30Ativos)}</div><div class="kpi-s">${fP(pctSem30At)} dos ativos</div></div>
@@ -906,15 +910,24 @@ function renderRenov(rows){
   // Vencem 91-120d
   const vencem120=withVenc.filter(x=>x.dias!==null&&x.dias>90&&x.dias<=120&&notRenewed(x));
 
-  // Ativos na renovação (dedup)
+  // Dedup tudo por email
   const renovAtivosEmails=new Set();
-  FPRO.forEach(f=>{if(isAtivo(f)&&f.email)renovAtivosEmails.add(f.email);});
+  const jaRenovaramEmails=new Set();
+  const vencidosEmails=new Set();
+  FPRO.forEach(f=>{
+    if(!f.email) return;
+    if(isAtivo(f)) renovAtivosEmails.add(f.email);
+    if(isValidRenov(f)) jaRenovaramEmails.add(f.email);
+  });
+  withVenc.forEach(x=>{
+    if(x.dias!==null&&x.dias<0&&notRenewed(x)&&x.f.email) vencidosEmails.add(x.f.email);
+  });
   const renovAtivos=renovAtivosEmails.size;
 
   let h=`<div class="kpis">
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Ativos</div><div class="kpi-v">${fN(renovAtivos)}</div><div class="kpi-s">${fP(FPRO_TOTAL?renovAtivos/FPRO_TOTAL*100:0)} da base</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Já Renovaram</div><div class="kpi-v">${fN(jaRenovaram.length)}</div><div class="kpi-s">${fP(FPRO_TOTAL?jaRenovaram.length/FPRO_TOTAL*100:0)} da base</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Vencidos</div><div class="kpi-v">${fN(vencidos.length)}</div><div class="kpi-s">Acesso expirado</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Já Renovaram</div><div class="kpi-v">${fN(jaRenovaramEmails.size)}</div><div class="kpi-s">${fP(FPRO_TOTAL?jaRenovaramEmails.size/FPRO_TOTAL*100:0)} da base</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Vencidos</div><div class="kpi-v">${fN(vencidosEmails.size)}</div><div class="kpi-s">Acesso expirado (emails únicos)</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--pink),var(--red))"></div><div class="kpi-l">Vencidos há 90 dias</div><div class="kpi-v">${fN(vencidos90.length)}</div><div class="kpi-s">Venceram nos últimos 90 dias</div></div>
   </div>
   <div class="kpis" style="margin-top:12px">
@@ -1008,10 +1021,10 @@ function renderRenov(rows){
 
   // Insights
   h+=`<div class="sec">Insights de Renovação</div><div class="ins-g">`;
-  if(vencidos.length>0) h+=`<div class="ins w"><div class="ins-t">${fN(vencidos.length)} acessos vencidos</div><div class="ins-p">Alunos com acesso expirado e sem renovação. Iniciar fluxo de reativação.</div></div>`;
+  if(vencidosEmails.size>0) h+=`<div class="ins w"><div class="ins-t">${fN(vencidosEmails.size)} acessos vencidos</div><div class="ins-p">Alunos com acesso expirado e sem renovação. Iniciar fluxo de reativação.</div></div>`;
   else h+=`<div class="ins ok"><div class="ins-t">Nenhum acesso vencido sem renovação</div><div class="ins-p">Todos os alunos vencidos já renovaram ou ainda estão vigentes.</div></div>`;
   if(vencem30.length>0) h+=`<div class="ins w"><div class="ins-t">${fN(vencem30.length)} vencem nos próximos 30 dias</div><div class="ins-p">Ação urgente - iniciar campanha de renovação agora.</div></div>`;
-  if(jaRenovaram.length>0) h+=`<div class="ins ok"><div class="ins-t">${fN(jaRenovaram.length)} já renovaram</div><div class="ins-p">${fP(FPRO_TOTAL?jaRenovaram.length/FPRO_TOTAL*100:0)} da base já garantiu a renovação.</div></div>`;
+  if(jaRenovaramEmails.size>0) h+=`<div class="ins ok"><div class="ins-t">${fN(jaRenovaramEmails.size)} já renovaram</div><div class="ins-p">${fP(FPRO_TOTAL?jaRenovaramEmails.size/FPRO_TOTAL*100:0)} da base já garantiu a renovação.</div></div>`;
   h+=`</div>`;
 
   cont.innerHTML=h;
