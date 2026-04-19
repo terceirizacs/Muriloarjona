@@ -690,29 +690,52 @@ function renderTrilhas(rows){
       </div>
     </div>
   </div>`;
-  // Card Especialista MCMV
+  // Card Especialista MCMV - somente exclusivos (não têm FPRO)
   const mcmvUniqueEmails=new Set(MCMV.map(m=>m.email));
-  const mcmvTotal=mcmvUniqueEmails.size;
+  const fproEmailsSet2=new Set(FPRO.map(f=>f.email));
+  const mcmvExclusivos=MCMV.filter(m=>m.email&&!fproEmailsSet2.has(m.email));
+  const mcmvExcEmails=new Set(mcmvExclusivos.map(m=>m.email));
+  // Consumo dos exclusivos MCMV (buscar na trilha "Especialista MCMV")
+  const trilhaMCMV='Especialista MCMV';
+  let mcmvConsumo=[],mcmvIniciados=0,mcmvAlto=0,mcmvBaixo=0;
+  rows.forEach(r=>{
+    if(!r.email||!mcmvExcEmails.has(r.email)) return;
+    const v=r.trilhas?r.trilhas[trilhaMCMV]:null;
+    const val=typeof v==='number'?v:0;
+    mcmvConsumo.push(val);
+    if(val>0){mcmvIniciados++;if(val>=50)mcmvAlto++;else if(val<10)mcmvBaixo++;}
+  });
+  const mcmvMedia=mcmvConsumo.length?mcmvConsumo.reduce((a,b)=>a+b,0)/mcmvConsumo.length:0;
+  const mcmvMediaIni=mcmvIniciados?mcmvConsumo.filter(v=>v>0).reduce((a,b)=>a+b,0)/mcmvIniciados:0;
   const mcmvCard=`<div class="trilha-card" style="border:2px solid var(--cyan)">
-    <div class="trilha-name" style="color:var(--cyan)">Especialista MCMV</div>
+    <div class="trilha-name" style="color:var(--cyan)">Especialista MCMV (exclusivos)</div>
     <div style="display:flex;align-items:flex-end;gap:18px;margin-bottom:6px">
       <div>
-        <div class="trilha-media" style="color:var(--cyan)">${fN(mcmvTotal)}</div>
-        <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-top:4px">alunos matriculados</div>
+        <div class="trilha-media" style="color:var(--cyan)">${fP(mcmvMediaIni)}</div>
+        <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-top:4px">média dos que iniciaram</div>
+      </div>
+      <div style="padding-bottom:4px">
+        <div style="font-family:JetBrains Mono;font-size:22px;font-weight:700;color:var(--t2)">${fN(MCMV_ONLY)}</div>
+        <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-top:4px">alunos exclusivos</div>
       </div>
     </div>
+    <div class="trilha-bar"><div class="trilha-bar-fill" style="width:${Math.max(mcmvMediaIni,0.5)}%;background:var(--cyan)"></div></div>
     <div class="trilha-stats">
       <div class="trilha-stat">
-        <div class="trilha-stat-l">Total de alunos</div>
-        <div class="trilha-stat-v">${fN(mcmvTotal)}</div>
-      </div>
-      <div class="trilha-stat">
-        <div class="trilha-stat-l">Também têm FPRO</div>
-        <div class="trilha-stat-v" style="color:var(--green)">${fN(mcmvTotal-MCMV_ONLY)}</div>
-      </div>
-      <div class="trilha-stat">
         <div class="trilha-stat-l">Exclusivos MCMV</div>
-        <div class="trilha-stat-v" style="color:var(--orange)">${fN(MCMV_ONLY)}</div>
+        <div class="trilha-stat-v">${fN(MCMV_ONLY)}</div>
+      </div>
+      <div class="trilha-stat">
+        <div class="trilha-stat-l">Iniciaram</div>
+        <div class="trilha-stat-v">${fN(mcmvIniciados)}</div>
+      </div>
+      <div class="trilha-stat">
+        <div class="trilha-stat-l">Acima de 50%</div>
+        <div class="trilha-stat-v" style="color:var(--green)">${fN(mcmvAlto)}</div>
+      </div>
+      <div class="trilha-stat">
+        <div class="trilha-stat-l">Abaixo de 10%</div>
+        <div class="trilha-stat-v" style="color:var(--orange)">${fN(mcmvBaixo)}</div>
       </div>
     </div>
   </div>`;
