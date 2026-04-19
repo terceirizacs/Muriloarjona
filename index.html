@@ -298,7 +298,7 @@ let FPRO=[], MCMV=[], TRILHA_DATA=[], TRILHAS=[], ROWS=[], NOW=Date.now();
 function doLogin(){
   const v=document.getElementById('pwdInput').value;
   if(v===SENHA){
-    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('loginScreen').style.display='none';
     const lo=document.getElementById('loadingOverlay');
     lo.classList.remove('hidden');
     lo.style.display='flex';
