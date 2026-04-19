@@ -884,65 +884,7 @@ function renderFinanceiro(){
 
 
 
-  // Perfil de consumo dos cross-sell
-  const crossEmails=new Set(mcmvAlsoFpro.map(m=>m.email));
-  let crossConsumo=[],crossMcmvConsumo=[];
-  rows.forEach(r=>{
-    if(!r.email||!crossEmails.has(r.email)) return;
-    crossConsumo.push(r.total||0);
-    const mcmvVal=r.trilhas?r.trilhas['Especialista MCMV']:null;
-    if(typeof mcmvVal==='number') crossMcmvConsumo.push(mcmvVal);
-  });
-  const crossAvgTotal=crossConsumo.length?crossConsumo.reduce((a,b)=>a+b,0)/crossConsumo.length:0;
-  const crossAvgMcmv=crossMcmvConsumo.length?crossMcmvConsumo.reduce((a,b)=>a+b,0)/crossMcmvConsumo.length:0;
-  const crossAtivos=crossConsumo.filter(v=>v>0).length;
-
-  h+=`<div class="sec">Perfil de consumo — Cross-sell MCMV → FPRO</div>
-  <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Alunos cross-sell</div><div class="kpi-v">${fN(crossEmails.size)}</div><div class="kpi-s">MCMV que também têm FPRO</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">Média consumo geral</div><div class="kpi-v">${fP(crossAvgTotal)}</div><div class="kpi-s">Média de todas as trilhas</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--cyan),var(--sky))"></div><div class="kpi-l">Média consumo MCMV</div><div class="kpi-v">${fP(crossAvgMcmv)}</div><div class="kpi-s">Trilha Especialista MCMV</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Com consumo ativo</div><div class="kpi-v">${fN(crossAtivos)}</div><div class="kpi-s">${fP(crossEmails.size?crossAtivos/crossEmails.size*100:0)} dos cross-sell</div></div>
-  </div>`;
-
-  // Distribuição de consumo MCMV dos cross-sell
-  const crossFaixas={'0%':0,'1-25%':0,'26-50%':0,'51-75%':0,'76-100%':0};
-  crossMcmvConsumo.forEach(v=>{
-    if(v===0)crossFaixas['0%']++;
-    else if(v<=25)crossFaixas['1-25%']++;
-    else if(v<=50)crossFaixas['26-50%']++;
-    else if(v<=75)crossFaixas['51-75%']++;
-    else crossFaixas['76-100%']++;
-  });
-  const faixaColors=['var(--red)','var(--orange)','var(--gold)','var(--sky)','var(--green)'];
-  const faixaKeys=Object.keys(crossFaixas);
-  const maxFaixa=Math.max(...Object.values(crossFaixas),1);
-  h+='<div class="card" style="margin-top:16px"><h3>Distribuição de consumo — Trilha Especialista MCMV</h3><div class="d">Consumo dos '+fN(crossEmails.size)+' alunos que fizeram cross-sell (MCMV → FPRO)</div><div class="hbar-area">';
-  faixaKeys.forEach((k,i)=>{
-    const v=crossFaixas[k];
-    const w=Math.max(v/maxFaixa*100,2);
-    h+='<div class="hbar-row"><div class="hbar-lbl">'+k+'</div><div class="hbar-track"><div class="hbar-fill" style="width:'+w+'%;background:'+faixaColors[i]+'">'+(v>0?v:'')+'</div></div><div style="font-family:JetBrains Mono;font-size:12px;color:var(--t2);min-width:40px;text-align:right;margin-left:8px">'+v+'</div></div>';
-  });
-  h+='</div></div>';
-
-  // Tabela dos cross-sell com consumo
-  const crossList=[];
-  rows.forEach(r=>{
-    if(!r.email||!crossEmails.has(r.email)) return;
-    const mcmvVal=r.trilhas?r.trilhas['Especialista MCMV']:null;
-    crossList.push({nome:r.nome,email:r.email,mcmv:typeof mcmvVal==='number'?mcmvVal:0,total:r.total||0,turma:r.turma||'-'});
-  });
-  crossList.sort((a,b)=>b.mcmv-a.mcmv);
-  h+='<div class="sec">Alunos cross-sell — Consumo na trilha MCMV</div>';
-  h+='<div class="card"><div style="overflow-x:auto;scrollbar-width:none"><table class="det-table"><thead><tr><th>Aluno</th><th>Turma</th><th style="text-align:right">Consumo MCMV</th><th style="text-align:right">Consumo Geral</th></tr></thead><tbody>';
-  crossList.forEach(r=>{
-    const colM=r.mcmv>=50?'var(--green)':r.mcmv>=10?'var(--gold)':r.mcmv>0?'var(--orange)':'var(--red)';
-    const colT=r.total>=50?'var(--green)':r.total>=10?'var(--gold)':r.total>0?'var(--orange)':'var(--red)';
-    h+='<tr><td><div style="color:var(--t1);font-weight:600">'+r.nome+'</div><div style="font-size:11px;color:var(--t3)">'+r.email+'</div></td><td style="font-size:12px">'+r.turma+'</td><td style="text-align:right;font-family:JetBrains Mono;font-weight:700;color:'+colM+'">'+fP(r.mcmv)+'</td><td style="text-align:right;font-family:JetBrains Mono;color:'+colT+'">'+fP(r.total)+'</td></tr>';
-  });
-  h+='</tbody></table></div></div>';
-
-  // Potential cross-sell list with pagination
+    // Potential cross-sell list with pagination
   if(mcmvOnly.length>0){
     const finPer=50,finPages=Math.max(1,Math.ceil(mcmvOnly.length/finPer));
     if(window._FIN_PAGE>finPages) window._FIN_PAGE=1;
