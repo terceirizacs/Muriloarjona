@@ -397,18 +397,15 @@ function hideTip(){if(_tip)_tip.classList.remove('show');}
 // Ativo = dtFimAcesso NOT passed; Inativo = dtFimAcesso HAS passed
 // Sem acessar +30d = ultAcesso > 30 days ago; Nunca acessou = no ultAcesso
 function isAtivo(r){
-  // Vitalício na coluna J = always active
-  if((r.dtFimAcessoRaw||'').toLowerCase().includes('vital')) return true;
-  // Vitalício na coluna K (renovação) = active
-  if((r.renovacao||'').toLowerCase().includes('vital')) return true;
-  // J não venceu = ativo
-  if(r.dtFimAcesso && r.dtFimAcesso > NOW) return true;
-  // J venceu, mas tem renovação: checar M (dtFimRenov) ou L (dtVendaRenov)
-  if(r.dtFimRenov && r.dtFimRenov > NOW) return true;
-  if(r.dtVendaRenov && r.dtVendaRenov > NOW) return true;
-  return false;
+  // Usar coluna Y (TCS ativo): Ativo ou Ativo Vitalício
+  const tcs=(r.tcsAtivo||'').toLowerCase();
+  return tcs.includes('ativo');
 }
-function isInativo(r){ return !isAtivo(r); }
+function isVitalicio(r){
+  const tcs=(r.tcsAtivo||'').toLowerCase();
+  return tcs.includes('vitalício') || tcs.includes('vitalicio');
+}
+function isInativo(r){ return (r.tcsAtivo||'').toLowerCase().includes('vencido'); }
 function semAcesso30(r){ return r.ultAcesso && (NOW - r.ultAcesso) > 30*DAY; }
 function nuncaAcessou(r){ return !r.ultAcesso; }
 
