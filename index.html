@@ -276,10 +276,10 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
 
   <div class="tab-content active" id="tab-geral"><div id="cGeral"></div></div>
   <div class="tab-content" id="tab-trilhas"><div id="cTrilhas"></div></div>
-  <div class="tab-content" id="tab-alunos"><div id="cAlunos"></div></div>
   <div class="tab-content" id="tab-financeiro"><div id="cFinanceiro"></div></div>
   <div class="tab-content" id="tab-renovacao"><div id="cRenov"></div></div>
 
+  <div class="tab-content" id="tab-alunos"><div id="cAlunos"></div></div>
   <div class="footer"><strong>Terceiriza CS</strong> · Dashboard Executivo</div>
 </div>
 
@@ -574,7 +574,6 @@ function renderGeral(rows){
   const kpis=`<div class="kpis">
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total de Alunos</div><div class="kpi-v">${fN(total)}</div><div class="kpi-s">FPRO: ${fN(FPRO.length)} + MCMV: ${fN(MCMV.length)}</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Ativos no Curso</div><div class="kpi-v">${fN(ativosCount)}</div><div class="kpi-s">${fP(total?ativosCount/total*100:0)} da base</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Vitalicios</div><div class="kpi-v">${fN(vitalicioCount)}</div><div class="kpi-s">${fP(total?vitalicioCount/total*100:0)} da base</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">Media Consumo</div><div class="kpi-v">${fP(media)}</div><div class="kpi-s">${stats.length} trilha${stats.length>1?'s':''}</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--red))"></div><div class="kpi-l">Sem acessar +30d</div><div class="kpi-v">${fN(sem30Ativos)}</div><div class="kpi-s">${fP(pctSem30At)} dos ativos</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Nunca Acessaram</div><div class="kpi-v">${fN(nuncaAtivos)}</div><div class="kpi-s">${fP(pctNuncaAt)} dos ativos</div></div>
@@ -787,11 +786,16 @@ function renderFinanceiro(){
   const potentialCross=mcmvOnly.length;
   const conversionPct=MCMV.length?mcmvAlsoFpro.length/MCMV.length*100:0;
 
+  const potExtensao=FPRO.length-fproComExtensao.length;
   let h=`<div class="kpis" style="grid-template-columns:repeat(2,1fr)">
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Cross-sell MCMV -> FPRO</div><div class="kpi-v">${fN(mcmvAlsoFpro.length)}</div><div class="kpi-s">${fP(conversionPct)} dos alunos MCMV tambem tem FPRO</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--gold))"></div><div class="kpi-l">Potencial restante</div><div class="kpi-v">${fN(potentialCross)}</div><div class="kpi-s">Alunos MCMV que ainda nao tem FPRO</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">FPRO com Extensao</div><div class="kpi-v">${fN(fproComExtensao.length)}</div><div class="kpi-s">${fP(FPRO.length?fproComExtensao.length/FPRO.length*100:0)} da base FPRO</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">FPRO Vitalicio</div><div class="kpi-v">${fN(fproVitalicio.length)}</div><div class="kpi-s">${fP(FPRO.length?fproVitalicio.length/FPRO.length*100:0)} da base FPRO</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Cross-sell MCMV → FPRO</div><div class="kpi-v">${fN(mcmvAlsoFpro.length)}</div><div class="kpi-s">${fP(conversionPct)} dos alunos MCMV também têm FPRO</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--gold))"></div><div class="kpi-l">Potencial Cross-sell</div><div class="kpi-v">${fN(potentialCross)}</div><div class="kpi-s">Alunos MCMV que ainda não têm FPRO</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">FPRO com Extensão</div><div class="kpi-v">${fN(fproComExtensao.length)}</div><div class="kpi-s">${fP(FPRO.length?fproComExtensao.length/FPRO.length*100:0)} da base</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Potencial Extensão</div><div class="kpi-v">${fN(potExtensao)}</div><div class="kpi-s">${fP(FPRO.length?potExtensao/FPRO.length*100:0)} sem extensão</div></div>
+  </div>
+  <div class="kpis" style="grid-template-columns:repeat(2,1fr);margin-top:12px">
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">FPRO Vitalício</div><div class="kpi-v">${fN(fproVitalicio.length)}</div><div class="kpi-s">${fP(FPRO.length?fproVitalicio.length/FPRO.length*100:0)} da base</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--gold),var(--orange))"></div><div class="kpi-l">Potencial Vitalício</div><div class="kpi-v">${fN(potVitalicio.length)}</div><div class="kpi-s">${fP(pctPotVit)} podem migrar</div></div>
   </div>`;
 
   // Cross-sell cards
@@ -817,11 +821,7 @@ function renderFinanceiro(){
   const potVitalicio=fproNaoVitalicio;
   const pctPotVit=FPRO.length?potVitalicio.length/FPRO.length*100:0;
 
-  // Add KPI for potencial vitalício
-  h+=`<div class="kpis" style="grid-template-columns:repeat(2,1fr);margin-top:20px">
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--gold),var(--orange))"></div><div class="kpi-l">Potencial Vitalicio</div><div class="kpi-v">${fN(potVitalicio.length)}</div><div class="kpi-s">${fP(pctPotVit)} da base FPRO que pode migrar para vitalicio</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Já são Vitalícios</div><div class="kpi-v">${fN(fproVitalicio.length)}</div><div class="kpi-s">${fP(FPRO.length?fproVitalicio.length/FPRO.length*100:0)} - base fidelizada</div></div>
-  </div>`;
+
 
   // Potential cross-sell list with pagination
   if(mcmvOnly.length>0){
@@ -858,7 +858,7 @@ function renderFinanceiro(){
 }
 
 /* ===== RENOVACAO ===== */
-let RN_PAGE=1;
+let RN_PAGE=1,RN_SORT='dias',RN_DIR=1;
 
 function renderRenov(rows){
   const cont=document.getElementById('cRenov');
@@ -899,6 +899,10 @@ function renderRenov(rows){
 
   // Vencem 61-90d
   const vencem90=withVenc.filter(x=>x.dias!==null&&x.dias>60&&x.dias<=90&&notRenewed(x));
+  // Vencidos a 90 dias (venceram há até 90 dias)
+  const vencidos90=withVenc.filter(x=>x.dias!==null&&x.dias<0&&x.dias>=-90&&notRenewed(x));
+  // Vencem 91-120d
+  const vencem120=withVenc.filter(x=>x.dias!==null&&x.dias>90&&x.dias<=120&&notRenewed(x));
 
   // Ativos na renovação (dedup)
   const renovAtivosEmails=new Set();
@@ -908,12 +912,14 @@ function renderRenov(rows){
   let h=`<div class="kpis">
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Ativos</div><div class="kpi-v">${fN(renovAtivos)}</div><div class="kpi-s">${fP(FPRO.length?renovAtivos/FPRO.length*100:0)} da base</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Já Renovaram</div><div class="kpi-v">${fN(jaRenovaram.length)}</div><div class="kpi-s">${fP(FPRO.length?jaRenovaram.length/FPRO.length*100:0)} da base</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Vencidos</div><div class="kpi-v">${fN(vencidos.length)}</div><div class="kpi-s">Acesso expirado, sem renovação</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Vencidos</div><div class="kpi-v">${fN(vencidos.length)}</div><div class="kpi-s">Acesso expirado</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--pink),var(--red))"></div><div class="kpi-l">Vencidos há 90 dias</div><div class="kpi-v">${fN(vencidos90.length)}</div><div class="kpi-s">Venceram nos últimos 90 dias</div></div>
   </div>
   <div class="kpis" style="margin-top:12px">
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--gold))"></div><div class="kpi-l">Vencem em 30 dias</div><div class="kpi-v">${fN(vencem30.length)}</div><div class="kpi-s">Ação urgente</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--gold),var(--sky))"></div><div class="kpi-l">Vencem 31-60 dias</div><div class="kpi-v">${fN(vencem60.length)}</div><div class="kpi-s">Planejar abordagem</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Vencem 61-90 dias</div><div class="kpi-v">${fN(vencem90.length)}</div><div class="kpi-s">Aquecer contato</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--cyan),var(--teal))"></div><div class="kpi-l">Vencem 91-120 dias</div><div class="kpi-v">${fN(vencem120.length)}</div><div class="kpi-s">Monitorar</div></div>
   </div>`;
 
   // Renovation by turma chart
@@ -956,7 +962,14 @@ function renderRenov(rows){
   }
 
   // Student table with expiration countdown
-  const tableRows=[...withVenc].filter(x=>x.dias!==null).sort((a,b)=>a.dias-b.dias);
+  const tableRows=[...withVenc].filter(x=>x.dias!==null).sort((a,b)=>{
+    if(RN_SORT==='nome') return RN_DIR*(a.f.nome||'').localeCompare(b.f.nome||'');
+    if(RN_SORT==='turma') return RN_DIR*(a.f.turma||'').localeCompare(b.f.turma||'');
+    if(RN_SORT==='fim') return RN_DIR*((a.venc||0)-(b.venc||0));
+    if(RN_SORT==='renov') return RN_DIR*(a.f.renovacao||'').localeCompare(b.f.renovacao||'');
+    if(RN_SORT==='status'){const sa=a.dias<0?0:a.dias;const sb=b.dias<0?0:b.dias;return RN_DIR*(sa-sb);}
+    return RN_DIR*(a.dias-b.dias);
+  });
   const per=50,pages=Math.max(1,Math.ceil(tableRows.length/per));
   if(RN_PAGE>pages)RN_PAGE=1;
   const slice=tableRows.slice((RN_PAGE-1)*per,RN_PAGE*per);
@@ -964,12 +977,12 @@ function renderRenov(rows){
   h+=`<div class="sec">Alunos - ${fN(tableRows.length)} registros</div>
   <div class="card"><div style="overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none"><table class="det-table">
     <thead><tr>
-      <th>Aluno</th>
-      <th>Turma</th>
-      <th style="text-align:right">Fim Acesso</th>
-      <th style="text-align:right">Dias restantes</th>
-      <th>Renovação</th>
-      <th>Status</th>
+      <th style="cursor:pointer" onclick="rnSort('nome')">Aluno</th>
+      <th style="cursor:pointer" onclick="rnSort('turma')">Turma</th>
+      <th style="text-align:right;cursor:pointer" onclick="rnSort('fim')">Fim Acesso</th>
+      <th style="text-align:right;cursor:pointer" onclick="rnSort('dias')">Dias restantes</th>
+      <th style="cursor:pointer" onclick="rnSort('renov')">Renovação</th>
+      <th style="cursor:pointer" onclick="rnSort('status')">Status</th>
     </tr></thead>
     <tbody>${slice.map(x=>{
       const f=x.f;
@@ -1002,6 +1015,7 @@ function renderRenov(rows){
   cont.innerHTML=h;
 }
 function rnGo(p){RN_PAGE=p;renderRenov(ROWS);}
+function rnSort(col){if(RN_SORT===col)RN_DIR*=-1;else{RN_SORT=col;RN_DIR=col==='dias'?1:-1;}RN_PAGE=1;renderRenov(ROWS);}
 function finGo(p){window._FIN_PAGE=p;renderFinanceiro();}
 
 </script>
