@@ -690,7 +690,34 @@ function renderTrilhas(rows){
       </div>
     </div>
   </div>`;
-  document.getElementById('cTrilhas').innerHTML=`<div class="sec">Detalhamento por trilha</div>${resumo}<div class="trilha-grid">${cards}</div>`;
+  // Card Especialista MCMV
+  const mcmvUniqueEmails=new Set(MCMV.map(m=>m.email));
+  const mcmvTotal=mcmvUniqueEmails.size;
+  const mcmvCard=`<div class="trilha-card" style="border:2px solid var(--cyan)">
+    <div class="trilha-name" style="color:var(--cyan)">Especialista MCMV</div>
+    <div style="display:flex;align-items:flex-end;gap:18px;margin-bottom:6px">
+      <div>
+        <div class="trilha-media" style="color:var(--cyan)">${fN(mcmvTotal)}</div>
+        <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-top:4px">alunos matriculados</div>
+      </div>
+    </div>
+    <div class="trilha-stats">
+      <div class="trilha-stat">
+        <div class="trilha-stat-l">Total de alunos</div>
+        <div class="trilha-stat-v">${fN(mcmvTotal)}</div>
+      </div>
+      <div class="trilha-stat">
+        <div class="trilha-stat-l">Também têm FPRO</div>
+        <div class="trilha-stat-v" style="color:var(--green)">${fN(mcmvTotal-MCMV_ONLY)}</div>
+      </div>
+      <div class="trilha-stat">
+        <div class="trilha-stat-l">Exclusivos MCMV</div>
+        <div class="trilha-stat-v" style="color:var(--orange)">${fN(MCMV_ONLY)}</div>
+      </div>
+    </div>
+  </div>`;
+
+  document.getElementById('cTrilhas').innerHTML=`<div class="sec">Detalhamento por trilha</div>${resumo}<div class="trilha-grid">${cards}${mcmvCard}</div>`;
 }
 
 /* ===== ALUNOS ===== */
