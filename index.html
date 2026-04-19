@@ -556,20 +556,32 @@ function renderGeral(rows){
   const menos=[...stats].filter(s=>s.max>0).sort((a,b)=>a.media-b.media)[0];
   const maisIniciada=[...stats].sort((a,b)=>b.iniciados-a.iniciados)[0];
 
-  // Ativos = FPRO alunos com acesso vigente (vitalício, extensão válida, ou dtFimAcesso no futuro)
-  const ativosCount=FPRO.filter(f=>{
-    const o=(f.oferta||'').toLowerCase(),rec=(f.recorrencia||'').toLowerCase();
-    if(o.includes('vital')||rec.includes('vital')) return true;
-    if(f.extensao&&f.extensao.trim()&&f.dtFimAcesso&&f.dtFimAcesso>NOW) return true;
-    return f.dtFimAcesso && f.dtFimAcesso > NOW;
-  }).length;
+  // Ativos: dedup por email, J/M direto na fonte, excluir status inválidos
+  const ativosEmails=new Set();
+  const vitalEmails=new Set();
+  rows.forEach(r=>{if(isAtivo(r)&&r.email)ativosEmails.add(r.email);if(isVitalicio(r)&&r.email)vitalEmails.add(r.email);});
+  const ativosCount=ativosEmails.size;
+  const vitalicioCount=vitalEmails.size;
+
+  // Sem acessar +30d e Nunca acessaram: SOMENTE entre ativos dedup
+  const sem30Emails=new Set();
+  const nuncaEmailsSet=new Set();
+  rows.forEach(r=>{
+    if(!r.email||!ativosEmails.has(r.email)) return;
+    if(nuncaAcessou(r)) nuncaEmailsSet.add(r.email);
+    else if(semAcesso30(r)) sem30Emails.add(r.email);
+  });
+  const sem30Ativos=sem30Emails.size;
+  const nuncaAtivos=nuncaEmailsSet.size;
+  const pctSem30At=ativosCount?sem30Ativos/ativosCount*100:0;
+  const pctNuncaAt=ativosCount?nuncaAtivos/ativosCount*100:0;
 
   const kpis=`<div class="kpis">
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total de Alunos</div><div class="kpi-v">${fN(total)}</div><div class="kpi-s">FPRO: ${fN(FPRO.length)} + MCMV: ${fN(MCMV.length)}</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Ativos no Curso</div><div class="kpi-v">${fN(ativosCount)}</div><div class="kpi-s">${fP(FPRO.length?ativosCount/FPRO.length*100:0)} da base FPRO</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--cyan),var(--sky))"></div><div class="kpi-l">Especialista MCMV</div><div class="kpi-v">${fN(MCMV.length)}</div><div class="kpi-s">Alunos do produto MCMV</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Ativos no Curso</div><div class="kpi-v">${fN(ativosCount)}</div><div class="kpi-s">${fP(total?ativosCount/total*100:0)} da base</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Vitalicios</div><div class="kpi-v">${fN(vitalicioCount)}</div><div class="kpi-s">${fP(total?vitalicioCount/total*100:0)} da base</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">Media Consumo</div><div class="kpi-v">${fP(media)}</div><div class="kpi-s">${stats.length} trilha${stats.length>1?'s':''}</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--red))"></div><div class="kpi-l">Sem acessar +30d</div><div class="kpi-v">${fN(sem30)}</div><div class="kpi-s">${fP(pctSem30)} da base</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--red))"></div><div class="kpi-l">Sem acessar +30d</div><div class="kpi-v">${fN(sem30Ativos)}</div><div class="kpi-s">${fP(pctSem30At)} dos ativos</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Nunca Acessaram</div><div class="kpi-v">${fN(nuncaAtivos)}</div><div class="kpi-s">${fP(pctNuncaAt)} dos ativos</div></div>
   </div>`;
 
