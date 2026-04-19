@@ -253,9 +253,9 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
   <nav>
     <button class="tab-btn active" onclick="switchTab('geral',this)">Visao Geral</button>
     <button class="tab-btn" onclick="switchTab('trilhas',this)">Trilhas</button>
-    <button class="tab-btn" onclick="switchTab('alunos',this)">Alunos</button>
     <button class="tab-btn" onclick="switchTab('financeiro',this)">Financeiro</button>
-    <button class="tab-btn" onclick="switchTab('renovacao',this)">Renovacao</button>
+    <button class="tab-btn" onclick="switchTab('renovacao',this)">Renovação</button>
+    <button class="tab-btn" onclick="switchTab('alunos',this)">Alunos</button>
   </nav>
 
   <div class="filter-bar">
@@ -355,6 +355,9 @@ async function loadData(){
       };
     });
 
+    // Dedup FPRO por email
+    const fproEmails=new Set();FPRO.forEach(f=>{if(f.email)fproEmails.add(f.email);});
+    window.FPRO_TOTAL=fproEmails.size;
     initDate();
     buildFilters();
     renderAll();
@@ -572,7 +575,7 @@ function renderGeral(rows){
   const pctNuncaAt=ativosCount?nuncaAtivos/ativosCount*100:0;
 
   const kpis=`<div class="kpis">
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total de Alunos</div><div class="kpi-v">${fN(total)}</div><div class="kpi-s">FPRO: ${fN(FPRO.length)} + MCMV: ${fN(MCMV.length)}</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total de Alunos</div><div class="kpi-v">${fN(total)}</div><div class="kpi-s">Financiamento Pro (emails únicos)</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Ativos no Curso</div><div class="kpi-v">${fN(ativosCount)}</div><div class="kpi-s">${fP(total?ativosCount/total*100:0)} da base</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">Media Consumo</div><div class="kpi-v">${fP(media)}</div><div class="kpi-s">${stats.length} trilha${stats.length>1?'s':''}</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--red))"></div><div class="kpi-l">Sem acessar +30d</div><div class="kpi-v">${fN(sem30Ativos)}</div><div class="kpi-s">${fP(pctSem30At)} dos ativos</div></div>
@@ -780,7 +783,7 @@ function renderFinanceiro(){
   const fproVitalicio=FPRO.filter(f=>(f.dtFimAcessoRaw||'').toLowerCase().includes('vital'));
   const fproNaoVitalicio=FPRO.filter(f=>!(f.dtFimAcessoRaw||'').toLowerCase().includes('vital'));
   const potVitalicio=fproNaoVitalicio;
-  const pctPotVit=FPRO.length?potVitalicio.length/FPRO.length*100:0;
+  const pctPotVit=FPRO_TOTAL?potVitalicio.length/FPRO_TOTAL*100:0;
 
   // 4 MCMV students also in FPRO
   const mcmvAlsoFpro=MCMV.filter(m=>fproEmails.has(m.email));
@@ -788,15 +791,15 @@ function renderFinanceiro(){
   const potentialCross=mcmvOnly.length;
   const conversionPct=MCMV.length?mcmvAlsoFpro.length/MCMV.length*100:0;
 
-  const potExtensao=FPRO.length-fproComExtensao.length;
+  const potExtensao=FPRO_TOTAL-fproComExtensao.length;
   let h=`<div class="kpis" style="grid-template-columns:repeat(2,1fr)">
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Cross-sell MCMV → FPRO</div><div class="kpi-v">${fN(mcmvAlsoFpro.length)}</div><div class="kpi-s">${fP(conversionPct)} dos alunos MCMV também têm FPRO</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--gold))"></div><div class="kpi-l">Potencial Cross-sell</div><div class="kpi-v">${fN(potentialCross)}</div><div class="kpi-s">Alunos MCMV que ainda não têm FPRO</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">FPRO com Extensão</div><div class="kpi-v">${fN(fproComExtensao.length)}</div><div class="kpi-s">${fP(FPRO.length?fproComExtensao.length/FPRO.length*100:0)} da base</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Potencial Extensão</div><div class="kpi-v">${fN(potExtensao)}</div><div class="kpi-s">${fP(FPRO.length?potExtensao/FPRO.length*100:0)} sem extensão</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">FPRO com Extensão</div><div class="kpi-v">${fN(fproComExtensao.length)}</div><div class="kpi-s">${fP(FPRO_TOTAL?fproComExtensao.length/FPRO_TOTAL*100:0)} da base</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Potencial Extensão</div><div class="kpi-v">${fN(potExtensao)}</div><div class="kpi-s">${fP(FPRO_TOTAL?potExtensao/FPRO_TOTAL*100:0)} sem extensão</div></div>
   </div>
   <div class="kpis" style="grid-template-columns:repeat(2,1fr);margin-top:12px">
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">FPRO Vitalício</div><div class="kpi-v">${fN(fproVitalicio.length)}</div><div class="kpi-s">${fP(FPRO.length?fproVitalicio.length/FPRO.length*100:0)} da base</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">FPRO Vitalício</div><div class="kpi-v">${fN(fproVitalicio.length)}</div><div class="kpi-s">${fP(FPRO_TOTAL?fproVitalicio.length/FPRO_TOTAL*100:0)} da base</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--gold),var(--orange))"></div><div class="kpi-l">Potencial Vitalício</div><div class="kpi-v">${fN(potVitalicio.length)}</div><div class="kpi-s">${fP(pctPotVit)} podem migrar</div></div>
   </div>`;
 
@@ -813,9 +816,9 @@ function renderFinanceiro(){
     <div class="cross-card">
       <div class="cross-title" style="color:var(--teal)">FPRO -> Extensao</div>
       <div class="cross-desc">Alunos de Financiamento Pro que adquiriram extensao de acesso</div>
-      <div class="cross-big" style="color:var(--teal)">${fN(fproComExtensao.length)} <span style="font-size:16px;color:var(--t2)">/ ${fN(FPRO.length)}</span></div>
-      <div class="cross-sub">${fP(FPRO.length?fproComExtensao.length/FPRO.length*100:0)} de conversão</div>
-      <div class="cross-bar"><div class="cross-bar-fill" style="width:${FPRO.length?fproComExtensao.length/FPRO.length*100:0}%;background:var(--teal)"></div></div>
+      <div class="cross-big" style="color:var(--teal)">${fN(fproComExtensao.length)} <span style="font-size:16px;color:var(--t2)">/ ${fN(FPRO_TOTAL)}</span></div>
+      <div class="cross-sub">${fP(FPRO_TOTAL?fproComExtensao.length/FPRO_TOTAL*100:0)} de conversão</div>
+      <div class="cross-bar"><div class="cross-bar-fill" style="width:${FPRO_TOTAL?fproComExtensao.length/FPRO_TOTAL*100:0}%;background:var(--teal)"></div></div>
     </div>
   </div>`;
 
@@ -909,8 +912,8 @@ function renderRenov(rows){
   const renovAtivos=renovAtivosEmails.size;
 
   let h=`<div class="kpis">
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Ativos</div><div class="kpi-v">${fN(renovAtivos)}</div><div class="kpi-s">${fP(FPRO.length?renovAtivos/FPRO.length*100:0)} da base</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Já Renovaram</div><div class="kpi-v">${fN(jaRenovaram.length)}</div><div class="kpi-s">${fP(FPRO.length?jaRenovaram.length/FPRO.length*100:0)} da base</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Ativos</div><div class="kpi-v">${fN(renovAtivos)}</div><div class="kpi-s">${fP(FPRO_TOTAL?renovAtivos/FPRO_TOTAL*100:0)} da base</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Já Renovaram</div><div class="kpi-v">${fN(jaRenovaram.length)}</div><div class="kpi-s">${fP(FPRO_TOTAL?jaRenovaram.length/FPRO_TOTAL*100:0)} da base</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Vencidos</div><div class="kpi-v">${fN(vencidos.length)}</div><div class="kpi-s">Acesso expirado</div></div>
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--pink),var(--red))"></div><div class="kpi-l">Vencidos há 90 dias</div><div class="kpi-v">${fN(vencidos90.length)}</div><div class="kpi-s">Venceram nos últimos 90 dias</div></div>
   </div>
@@ -1008,7 +1011,7 @@ function renderRenov(rows){
   if(vencidos.length>0) h+=`<div class="ins w"><div class="ins-t">${fN(vencidos.length)} acessos vencidos</div><div class="ins-p">Alunos com acesso expirado e sem renovação. Iniciar fluxo de reativação.</div></div>`;
   else h+=`<div class="ins ok"><div class="ins-t">Nenhum acesso vencido sem renovação</div><div class="ins-p">Todos os alunos vencidos já renovaram ou ainda estão vigentes.</div></div>`;
   if(vencem30.length>0) h+=`<div class="ins w"><div class="ins-t">${fN(vencem30.length)} vencem nos próximos 30 dias</div><div class="ins-p">Ação urgente - iniciar campanha de renovação agora.</div></div>`;
-  if(jaRenovaram.length>0) h+=`<div class="ins ok"><div class="ins-t">${fN(jaRenovaram.length)} já renovaram</div><div class="ins-p">${fP(FPRO.length?jaRenovaram.length/FPRO.length*100:0)} da base já garantiu a renovação.</div></div>`;
+  if(jaRenovaram.length>0) h+=`<div class="ins ok"><div class="ins-t">${fN(jaRenovaram.length)} já renovaram</div><div class="ins-p">${fP(FPRO_TOTAL?jaRenovaram.length/FPRO_TOTAL*100:0)} da base já garantiu a renovação.</div></div>`;
   h+=`</div>`;
 
   cont.innerHTML=h;
