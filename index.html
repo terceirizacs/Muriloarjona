@@ -695,12 +695,12 @@ function renderTrilhas(rows){
   const fproEmailsSet2=new Set(FPRO.map(f=>f.email));
   const mcmvExclusivos=MCMV.filter(m=>m.email&&!fproEmailsSet2.has(m.email));
   const mcmvExcEmails=new Set(mcmvExclusivos.map(m=>m.email));
-  // Consumo dos exclusivos MCMV (buscar na trilha "Especialista MCMV")
+  // Consumo dos exclusivos MCMV - buscar em _TRILHAS_RAW (não em rows que é FPRO)
   const trilhaMCMV='Especialista MCMV';
   let mcmvConsumo=[],mcmvIniciados=0,mcmvAlto=0,mcmvBaixo=0;
-  rows.forEach(r=>{
-    if(!r.email||!mcmvExcEmails.has(r.email)) return;
-    const v=r.trilhas?r.trilhas[trilhaMCMV]:null;
+  (window._TRILHAS_RAW||[]).forEach(t=>{
+    if(!t.email||!mcmvExcEmails.has(t.email)) return;
+    const v=t.trilhas?t.trilhas[trilhaMCMV]:null;
     const val=typeof v==='number'?v:0;
     mcmvConsumo.push(val);
     if(val>0){mcmvIniciados++;if(val>=50)mcmvAlto++;else if(val<10)mcmvBaixo++;}
