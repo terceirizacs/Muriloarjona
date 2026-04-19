@@ -530,8 +530,8 @@ function renderAll(filtered){
 
 /* ===== VISAO GERAL ===== */
 function renderGeral(rows){
-  // Dedup total por email
-  const totalEmails=new Set();rows.forEach(r=>{if(r.email)totalEmails.add(r.email);});
+  // Dedup total por email usando FPRO
+  const totalEmails=new Set();FPRO.forEach(f=>{if(f.email)totalEmails.add(f.email);});
   const total=totalEmails.size;
   let ativos=0,inativos=0,sem30=0,nunca=0;
   rows.forEach(r=>{
@@ -779,6 +779,8 @@ function renderFinanceiro(){
   // 3 FPRO Vitalício - coluna J
   const fproVitalicio=FPRO.filter(f=>(f.dtFimAcessoRaw||'').toLowerCase().includes('vital'));
   const fproNaoVitalicio=FPRO.filter(f=>!(f.dtFimAcessoRaw||'').toLowerCase().includes('vital'));
+  const potVitalicio=fproNaoVitalicio;
+  const pctPotVit=FPRO.length?potVitalicio.length/FPRO.length*100:0;
 
   // 4 MCMV students also in FPRO
   const mcmvAlsoFpro=MCMV.filter(m=>fproEmails.has(m.email));
@@ -817,9 +819,6 @@ function renderFinanceiro(){
     </div>
   </div>`;
 
-  // 5 Potencial Vitalício: FPRO que NÃO são vitalícios
-  const potVitalicio=fproNaoVitalicio;
-  const pctPotVit=FPRO.length?potVitalicio.length/FPRO.length*100:0;
 
 
 
