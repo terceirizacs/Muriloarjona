@@ -761,7 +761,7 @@ function renderFinanceiro(){
   const mcmvEmails=new Set(MCMV.map(m=>m.email.toLowerCase()));
   const fproEmails=new Set(FPRO.map(f=>f.email.toLowerCase()));
 
-  // 1) Cross-sell: MCMV -> FPRO (bought MCMV and then bought FPRO)
+  // 1 Cross-sell: MCMV -> FPRO
   const crossMcmvToFpro=[];
   MCMV.forEach(m=>{
     if(fproEmails.has(m.email)){
@@ -774,14 +774,14 @@ function renderFinanceiro(){
     }
   });
 
-  // 2) FPRO -> Extensao
+  // 2 FPRO -> Extensao
   const fproComExtensao=FPRO.filter(f=>f.extensao&&f.extensao.toLowerCase()!=='');
   
-  // 3) FPRO Vitalício (coluna J)
+  // 3 FPRO Vitalício - coluna J
   const fproVitalicio=FPRO.filter(f=>(f.dtFimAcessoRaw||'').toLowerCase().includes('vital'));
   const fproNaoVitalicio=FPRO.filter(f=>!(f.dtFimAcessoRaw||'').toLowerCase().includes('vital'));
 
-  // 4) MCMV students also in FPRO
+  // 4 MCMV students also in FPRO
   const mcmvAlsoFpro=MCMV.filter(m=>fproEmails.has(m.email));
   const mcmvOnly=MCMV.filter(m=>!fproEmails.has(m.email));
   const potentialCross=mcmvOnly.length;
@@ -813,7 +813,7 @@ function renderFinanceiro(){
     </div>
   </div>`;
 
-  // 5) Potencial Vitalício: FPRO que NÃO são vitalícios (coluna J)
+  // 5 Potencial Vitalício: FPRO que NÃO são vitalícios
   const potVitalicio=fproNaoVitalicio;
   const pctPotVit=FPRO.length?potVitalicio.length/FPRO.length*100:0;
 
@@ -943,15 +943,14 @@ function renderRenov(rows){
         const pct=v.total?v.renov/v.total*100:0;
         const w=Math.max(pct/maxPctRenov*100,1);
         const col=colPalette[i%colPalette.length];
-        const tip=\`<div class=tt-title>\${turma}</div><div class=tt-row><span class=tt-label>Total alunos:</span><span class=tt-value>\${fN(v.total)}</span></div><div class=tt-row><span class=tt-label>Renovaram:</span><span class=tt-value>\${fN(v.renov)}</span></div><div class=tt-row><span class=tt-label>Percentual:</span><span class=tt-value>\${pct.toFixed(1)}%</span></div><div class=tt-row><span class=tt-label>Não renovaram:</span><span class=tt-value>\${fN(v.total-v.renov)}</span></div>\`;
-        return `<div class="hbar-row" onmouseenter="showTip(event,'\${tip}')" onmousemove="showTip(event,'\${tip}')" onmouseleave="hideTip()">
-          <div class="hbar-lbl">\${turma.replace('TURMA ','T').replace(/ - /,' ')}</div>
-          <div class="hbar-track"><div class="hbar-fill" style="width:\${w}%;background:\${col}">\${pct>=3?pct.toFixed(1)+'%':''}</div></div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;min-width:120px;margin-left:8px">
-            <div style="font-family:JetBrains Mono;font-size:14px;font-weight:700;color:\${col}">\${pct.toFixed(1)}%</div>
-            <div style="font-family:JetBrains Mono;font-size:11px;color:var(--t3)">\${fN(v.renov)} / \${fN(v.total)}</div>
-          </div>
-        </div>`;
+        const tip='<div class=tt-title>'+turma+'</div><div class=tt-row><span class=tt-label>Total alunos:</span><span class=tt-value>'+fN(v.total)+'</span></div><div class=tt-row><span class=tt-label>Renovaram:</span><span class=tt-value>'+fN(v.renov)+'</span></div><div class=tt-row><span class=tt-label>Percentual:</span><span class=tt-value>'+pct.toFixed(1)+'%</span></div><div class=tt-row><span class=tt-label>Não renovaram:</span><span class=tt-value>'+fN(v.total-v.renov)+'</span></div>';
+        return '<div class="hbar-row" onmouseenter="showTip(event,\''+tip+'\')" onmousemove="showTip(event,\''+tip+'\')" onmouseleave="hideTip()">'
+          +'<div class="hbar-lbl">'+turma.replace('TURMA ','T').replace(/ - /,' ')+'</div>'
+          +'<div class="hbar-track"><div class="hbar-fill" style="width:'+w+'%;background:'+col+'">'+(pct>=3?pct.toFixed(1)+'%':'')+'</div></div>'
+          +'<div style="display:flex;flex-direction:column;align-items:flex-end;min-width:120px;margin-left:8px">'
+          +'<div style="font-family:JetBrains Mono;font-size:14px;font-weight:700;color:'+col+'">'+pct.toFixed(1)+'%</div>'
+          +'<div style="font-family:JetBrains Mono;font-size:11px;color:var(--t3)">'+fN(v.renov)+' / '+fN(v.total)+'</div>'
+          +'</div></div>';
       }).join('')}
     </div></div>`;
   }
