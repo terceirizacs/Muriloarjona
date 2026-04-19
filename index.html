@@ -537,7 +537,9 @@ function renderAll(filtered){
 
 /* ===== VISAO GERAL ===== */
 function renderGeral(rows){
-  const total=rows.length;
+  // Dedup total por email
+  const totalEmails=new Set();rows.forEach(r=>{if(r.email)totalEmails.add(r.email);});
+  const total=totalEmails.size;
   let ativos=0,inativos=0,sem30=0,nunca=0;
   rows.forEach(r=>{
     if(nuncaAcessou(r))nunca++;
@@ -782,12 +784,9 @@ function renderFinanceiro(){
   // 2) FPRO -> Extensao
   const fproComExtensao=FPRO.filter(f=>f.extensao&&f.extensao.toLowerCase()!=='');
   
-  // 3) FPRO Vitalicio
-  const fproVitalicio=FPRO.filter(f=>{
-    const o=(f.oferta||'').toLowerCase();
-    const r=(f.recorrencia||'').toLowerCase();
-    return o.includes('vital') || r.includes('vital');
-  });
+  // 3) FPRO Vitalício (coluna J)
+  const fproVitalicio=FPRO.filter(f=>(f.dtFimAcessoRaw||'').toLowerCase().includes('vital'));
+  const fproNaoVitalicio=FPRO.filter(f=>!(f.dtFimAcessoRaw||'').toLowerCase().includes('vital'));
 
   // 4) MCMV students also in FPRO
   const mcmvAlsoFpro=MCMV.filter(m=>fproEmails.has(m.email));
@@ -803,35 +802,32 @@ function renderFinanceiro(){
   </div>`;
 
   // Cross-sell cards
-  h+=`<div class="sec">Caminhos de conversao</div>
+  h+=`<div class="sec">Caminhos de conversão</div>
   <div class="g2">
     <div class="cross-card">
       <div class="cross-title" style="color:var(--accent)">MCMV -> Financiamento Pro</div>
       <div class="cross-desc">Alunos que compraram Especialista MCMV e tambem possuem Financiamento Pro</div>
       <div class="cross-big" style="color:var(--accent)">${fN(mcmvAlsoFpro.length)} <span style="font-size:16px;color:var(--t2)">/ ${fN(MCMV.length)}</span></div>
-      <div class="cross-sub">${fP(conversionPct)} de conversao</div>
+      <div class="cross-sub">${fP(conversionPct)} de conversão</div>
       <div class="cross-bar"><div class="cross-bar-fill" style="width:${conversionPct}%;background:var(--accent)"></div></div>
     </div>
     <div class="cross-card">
       <div class="cross-title" style="color:var(--teal)">FPRO -> Extensao</div>
       <div class="cross-desc">Alunos de Financiamento Pro que adquiriram extensao de acesso</div>
       <div class="cross-big" style="color:var(--teal)">${fN(fproComExtensao.length)} <span style="font-size:16px;color:var(--t2)">/ ${fN(FPRO.length)}</span></div>
-      <div class="cross-sub">${fP(FPRO.length?fproComExtensao.length/FPRO.length*100:0)} de conversao</div>
+      <div class="cross-sub">${fP(FPRO.length?fproComExtensao.length/FPRO.length*100:0)} de conversão</div>
       <div class="cross-bar"><div class="cross-bar-fill" style="width:${FPRO.length?fproComExtensao.length/FPRO.length*100:0}%;background:var(--teal)"></div></div>
     </div>
   </div>`;
 
-  // 5) Potencial Vitalício: FPRO que NÃO são vitalícios
-  const potVitalicio=FPRO.filter(f=>{
-    const o=(f.oferta||'').toLowerCase(),r=(f.recorrencia||'').toLowerCase();
-    return !o.includes('vital') && !r.includes('vital');
-  });
+  // 5) Potencial Vitalício: FPRO que NÃO são vitalícios (coluna J)
+  const potVitalicio=fproNaoVitalicio;
   const pctPotVit=FPRO.length?potVitalicio.length/FPRO.length*100:0;
 
   // Add KPI for potencial vitalício
   h+=`<div class="kpis" style="grid-template-columns:repeat(2,1fr);margin-top:20px">
     <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--gold),var(--orange))"></div><div class="kpi-l">Potencial Vitalicio</div><div class="kpi-v">${fN(potVitalicio.length)}</div><div class="kpi-s">${fP(pctPotVit)} da base FPRO que pode migrar para vitalicio</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Ja sao Vitalicios</div><div class="kpi-v">${fN(fproVitalicio.length)}</div><div class="kpi-s">${fP(FPRO.length?fproVitalicio.length/FPRO.length*100:0)} - base fidelizada</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Já são Vitalícios</div><div class="kpi-v">${fN(fproVitalicio.length)}</div><div class="kpi-s">${fP(FPRO.length?fproVitalicio.length/FPRO.length*100:0)} - base fidelizada</div></div>
   </div>`;
 
   // Potential cross-sell list with pagination
@@ -858,11 +854,11 @@ function renderFinanceiro(){
   }
 
   // Insights
-  h+=`<div class="sec">Insights Financeiro</div><div class="ins-g">`;
-  if(potentialCross>0) h+=`<div class="ins i"><div class="ins-t">Oportunidade de cross-sell</div><div class="ins-p"><strong>${fN(potentialCross)}</strong> alunos MCMV ainda nao possuem Financiamento Pro. Potencial de conversao.</div></div>`;
-  if(potVitalicio.length>0) h+=`<div class="ins i"><div class="ins-t">Potencial de upgrade vitalicio</div><div class="ins-p"><strong>${fN(potVitalicio.length)}</strong> alunos FPRO podem migrar para o plano vitalicio (${fP(pctPotVit)} da base).</div></div>`;
-  if(fproVitalicio.length>0) h+=`<div class="ins ok"><div class="ins-t">Base vitalicia</div><div class="ins-p"><strong>${fN(fproVitalicio.length)}</strong> alunos possuem FPRO vitalicio - base fidelizada que nao precisa renovar.</div></div>`;
-  if(fproComExtensao.length>0) h+=`<div class="ins ok"><div class="ins-t">Extensoes ativas</div><div class="ins-p"><strong>${fN(fproComExtensao.length)}</strong> alunos adquiriram extensao do Financiamento Pro.</div></div>`;
+  h+=`<div class="sec">Insights — Financeiro</div><div class="ins-g">`;
+  if(potentialCross>0) h+=`<div class="ins i"><div class="ins-t">Oportunidade de cross-sell</div><div class="ins-p"><strong>${fN(potentialCross)}</strong> alunos MCMV ainda não possuem Financiamento Pro. Potencial de conversao.</div></div>`;
+  if(potVitalicio.length>0) h+=`<div class="ins i"><div class="ins-t">Potencial de upgrade vitalício</div><div class="ins-p"><strong>${fN(potVitalicio.length)}</strong> alunos FPRO podem migrar para o plano vitalício (${fP(pctPotVit)} da base).</div></div>`;
+  if(fproVitalicio.length>0) h+=`<div class="ins ok"><div class="ins-t">Base vitalícia</div><div class="ins-p"><strong>${fN(fproVitalicio.length)}</strong> alunos possuem FPRO vitalicio - base fidelizada que não precisa renovar.</div></div>`;
+  if(fproComExtensao.length>0) h+=`<div class="ins ok"><div class="ins-t">Extensões ativas</div><div class="ins-p"><strong>${fN(fproComExtensao.length)}</strong> alunos adquiriram extensao do Financiamento Pro.</div></div>`;
   h+=`</div>`;
 
   cont.innerHTML=h;
@@ -909,14 +905,22 @@ function renderRenov(rows){
   const vencem60=withVenc.filter(x=>x.dias!==null&&x.dias>30&&x.dias<=60&&notRenewed(x));
 
   // Vencem 61-90d
-  const vencem90=withVenc.filter(x=>x.dias!==null&&x.dias>60&&x.dias<=90&&(!x.f.renovacao||!x.f.renovacao.trim()));
+  const vencem90=withVenc.filter(x=>x.dias!==null&&x.dias>60&&x.dias<=90&&notRenewed(x));
 
-  let h=`<div class="kpis" style="grid-template-columns:repeat(5,1fr)">
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Ja Renovaram</div><div class="kpi-v">${fN(jaRenovaram.length)}</div><div class="kpi-s">${fP(FPRO.length?jaRenovaram.length/FPRO.length*100:0)} da base</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Vencidos</div><div class="kpi-v">${fN(vencidos.length)}</div><div class="kpi-s">Acesso expirado, sem renovacao</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--gold))"></div><div class="kpi-l">Vencem 30d</div><div class="kpi-v">${fN(vencem30.length)}</div><div class="kpi-s">Acao urgente</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--gold),var(--sky))"></div><div class="kpi-l">Vencem 31-60d</div><div class="kpi-v">${fN(vencem60.length)}</div><div class="kpi-s">Planejar abordagem</div></div>
-    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Vencem 61-90d</div><div class="kpi-v">${fN(vencem90.length)}</div><div class="kpi-s">Aquecer contato</div></div>
+  // Ativos na renovação (dedup)
+  const renovAtivosEmails=new Set();
+  FPRO.forEach(f=>{if(isAtivo(f)&&f.email)renovAtivosEmails.add(f.email);});
+  const renovAtivos=renovAtivosEmails.size;
+
+  let h=`<div class="kpis">
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Ativos</div><div class="kpi-v">${fN(renovAtivos)}</div><div class="kpi-s">${fP(FPRO.length?renovAtivos/FPRO.length*100:0)} da base</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Já Renovaram</div><div class="kpi-v">${fN(jaRenovaram.length)}</div><div class="kpi-s">${fP(FPRO.length?jaRenovaram.length/FPRO.length*100:0)} da base</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Vencidos</div><div class="kpi-v">${fN(vencidos.length)}</div><div class="kpi-s">Acesso expirado, sem renovação</div></div>
+  </div>
+  <div class="kpis" style="margin-top:12px">
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--gold))"></div><div class="kpi-l">Vencem em 30 dias</div><div class="kpi-v">${fN(vencem30.length)}</div><div class="kpi-s">Ação urgente</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--gold),var(--sky))"></div><div class="kpi-l">Vencem 31-60 dias</div><div class="kpi-v">${fN(vencem60.length)}</div><div class="kpi-s">Planejar abordagem</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Vencem 61-90 dias</div><div class="kpi-v">${fN(vencem90.length)}</div><div class="kpi-s">Aquecer contato</div></div>
   </div>`;
 
   // Renovation by turma chart
@@ -939,19 +943,20 @@ function renderRenov(rows){
     const maxPctRenov=Math.max(...turmaArr.map(([,v])=>v.total?v.renov/v.total*100:0),1);
     const colPalette=['#8b7cf7','#34d399','#38bdf8','#fb923c','#f472b6','#22d3ee','#fbbf24','#a78bfa','#2dd4bf','#f87171'];
     const totalRenov=jaRenovaram.length;
-    h+=`<div class="sec">Percentual de Renovacao por Turma</div>
-    <div class="card"><h3>Renovacao por turma</h3><div class="d">Total: ${fN(totalRenov)} renovacoes validas. Ordenado por turma (cronologico).</div>
+    h+=`<div class="sec">Percentual de Renovação por Turma</div>
+    <div class="card"><h3>Renovação por turma</h3><div class="d">Total: ${fN(totalRenov)} renovações válidas. Ordenado por turma (cronologico).</div>
     <div class="hbar-area">
       ${turmaArr.map(([turma,v],i)=>{
         const pct=v.total?v.renov/v.total*100:0;
         const w=Math.max(pct/maxPctRenov*100,1);
         const col=colPalette[i%colPalette.length];
-        return `<div class="hbar-row" title="${turma}: ${v.renov}/${v.total} (${pct.toFixed(1)}%)">
-          <div class="hbar-lbl">${turma.replace('TURMA ','T').replace(/ - /,' ')}</div>
-          <div class="hbar-track"><div class="hbar-fill" style="width:${w}%;background:${col}">${pct>=3?pct.toFixed(1)+'%':''}</div></div>
+        const tip=\`<div class=tt-title>\${turma}</div><div class=tt-row><span class=tt-label>Total alunos:</span><span class=tt-value>\${fN(v.total)}</span></div><div class=tt-row><span class=tt-label>Renovaram:</span><span class=tt-value>\${fN(v.renov)}</span></div><div class=tt-row><span class=tt-label>Percentual:</span><span class=tt-value>\${pct.toFixed(1)}%</span></div><div class=tt-row><span class=tt-label>Não renovaram:</span><span class=tt-value>\${fN(v.total-v.renov)}</span></div>\`;
+        return `<div class="hbar-row" onmouseenter="showTip(event,'\${tip}')" onmousemove="showTip(event,'\${tip}')" onmouseleave="hideTip()">
+          <div class="hbar-lbl">\${turma.replace('TURMA ','T').replace(/ - /,' ')}</div>
+          <div class="hbar-track"><div class="hbar-fill" style="width:\${w}%;background:\${col}">\${pct>=3?pct.toFixed(1)+'%':''}</div></div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;min-width:120px;margin-left:8px">
-            <div style="font-family:JetBrains Mono;font-size:14px;font-weight:700;color:${col}">${pct.toFixed(1)}%</div>
-            <div style="font-family:JetBrains Mono;font-size:11px;color:var(--t3)">${fN(v.renov)} / ${fN(v.total)}</div>
+            <div style="font-family:JetBrains Mono;font-size:14px;font-weight:700;color:\${col}">\${pct.toFixed(1)}%</div>
+            <div style="font-family:JetBrains Mono;font-size:11px;color:var(--t3)">\${fN(v.renov)} / \${fN(v.total)}</div>
           </div>
         </div>`;
       }).join('')}
@@ -971,7 +976,7 @@ function renderRenov(rows){
       <th>Turma</th>
       <th style="text-align:right">Fim Acesso</th>
       <th style="text-align:right">Dias restantes</th>
-      <th>Renovacao</th>
+      <th>Renovação</th>
       <th>Status</th>
     </tr></thead>
     <tbody>${slice.map(x=>{
@@ -995,11 +1000,11 @@ function renderRenov(rows){
   </div>`;
 
   // Insights
-  h+=`<div class="sec">Insights de Renovacao</div><div class="ins-g">`;
-  if(vencidos.length>0) h+=`<div class="ins w"><div class="ins-t">${fN(vencidos.length)} acessos vencidos</div><div class="ins-p">Alunos com acesso expirado e sem renovacao. Iniciar fluxo de reativacao.</div></div>`;
-  else h+=`<div class="ins ok"><div class="ins-t">Nenhum acesso vencido sem renovacao</div><div class="ins-p">Todos os alunos vencidos ja renovaram ou ainda estao vigentes.</div></div>`;
-  if(vencem30.length>0) h+=`<div class="ins w"><div class="ins-t">${fN(vencem30.length)} vencem nos proximos 30 dias</div><div class="ins-p">Acao urgente - iniciar campanha de renovacao agora.</div></div>`;
-  if(jaRenovaram.length>0) h+=`<div class="ins ok"><div class="ins-t">${fN(jaRenovaram.length)} ja renovaram</div><div class="ins-p">${fP(FPRO.length?jaRenovaram.length/FPRO.length*100:0)} da base ja garantiu a renovacao.</div></div>`;
+  h+=`<div class="sec">Insights de Renovação</div><div class="ins-g">`;
+  if(vencidos.length>0) h+=`<div class="ins w"><div class="ins-t">${fN(vencidos.length)} acessos vencidos</div><div class="ins-p">Alunos com acesso expirado e sem renovação. Iniciar fluxo de reativação.</div></div>`;
+  else h+=`<div class="ins ok"><div class="ins-t">Nenhum acesso vencido sem renovação</div><div class="ins-p">Todos os alunos vencidos já renovaram ou ainda estão vigentes.</div></div>`;
+  if(vencem30.length>0) h+=`<div class="ins w"><div class="ins-t">${fN(vencem30.length)} vencem nos próximos 30 dias</div><div class="ins-p">Ação urgente - iniciar campanha de renovação agora.</div></div>`;
+  if(jaRenovaram.length>0) h+=`<div class="ins ok"><div class="ins-t">${fN(jaRenovaram.length)} já renovaram</div><div class="ins-p">${fP(FPRO.length?jaRenovaram.length/FPRO.length*100:0)} da base já garantiu a renovação.</div></div>`;
   h+=`</div>`;
 
   cont.innerHTML=h;
