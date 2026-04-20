@@ -965,14 +965,14 @@ function renderRenov(rows){
   // Vencem 91-120d
   const vencem120=withVenc.filter(x=>x.dias!==null&&x.dias>90&&x.dias<=120&&notRenewed(x));
 
-  // Dedup tudo por email
+  // Dedup tudo por email - usar ROWS (já dedup) para ativos
   const renovAtivosEmails=new Set();
   const jaRenovaramEmails=new Set();
   const vencidosEmails=new Set();
-  FPRO.forEach(f=>{
-    if(!f.email) return;
-    if(isAtivo(f)) renovAtivosEmails.add(f.email);
-    if(isValidRenov(f)) jaRenovaramEmails.add(f.email);
+  ROWS.forEach(r=>{
+    if(!r.email) return;
+    if(isAtivo(r)) renovAtivosEmails.add(r.email);
+    if(isValidRenov(r)) jaRenovaramEmails.add(r.email);
   });
   withVenc.forEach(x=>{
     if(x.dias!==null&&x.dias<0&&notRenewed(x)&&x.f.email) vencidosEmails.add(x.f.email);
