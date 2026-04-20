@@ -970,17 +970,15 @@ function renderRenov(rows){
   // Vencem 91-120d
   const vencem120=withVenc.filter(x=>x.dias!==null&&x.dias>90&&x.dias<=120&&notRenewed(x));
 
-  // Dedup tudo por email - usar ROWS (já dedup) para ativos
+  // Dedup tudo por email - usar ROWS (já dedup)
   const renovAtivosEmails=new Set();
   const jaRenovaramEmails=new Set();
   const vencidosEmails=new Set();
   ROWS.forEach(r=>{
     if(!r.email) return;
     if(isAtivo(r)) renovAtivosEmails.add(r.email);
+    else vencidosEmails.add(r.email);
     if(isValidRenov(r)) jaRenovaramEmails.add(r.email);
-  });
-  withVenc.forEach(x=>{
-    if(x.dias!==null&&x.dias<0&&notRenewed(x)&&x.f.email) vencidosEmails.add(x.f.email);
   });
   const renovAtivos=renovAtivosEmails.size;
 
