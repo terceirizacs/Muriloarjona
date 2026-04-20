@@ -931,13 +931,12 @@ function renderRenov(rows){
   // If vitalício in BOTH J and K = was always vitalício (don't count)
   // If vitalício ONLY in K (J has date) = upgraded to vitalício (count)
   function isValidRenov(f){
-    const k=(f.renovacao||'').trim().toLowerCase();
-    if(!k) return false;
-    if(k.includes('cancel')) return false;
-    if(k.includes('não renov')||k.includes('nao renov')) return false;
+    // Renovação = tem Data Venda Renovação (coluna L)
+    if(!f.dtVendaRenov) return false;
+    // Excluir se J=vitalício e K=vitalício (sempre foi vitalício)
     const jVital=(f.dtFimAcessoRaw||'').toLowerCase().includes('vital');
-    const kVital=k.includes('vital');
-    if(jVital&&kVital) return false; // Was always vitalício
+    const kVital=(f.renovacao||'').toLowerCase().includes('vital');
+    if(jVital&&kVital) return false;
     return true;
   }
   const jaRenovaram=FPRO.filter(f=>isValidRenov(f));
