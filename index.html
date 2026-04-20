@@ -358,9 +358,20 @@ async function loadData(){
     // Dedup por email
     const fproEmailSet=new Set();FPRO.forEach(f=>{if(f.email)fproEmailSet.add(f.email);});
     window.FPRO_TOTAL=fproEmailSet.size;
-    // Dedup ROWS por email (manter o mais recente)
+    // Dedup ROWS por email - priorizar: quem tem renovação > quem tem acesso mais recente
     const rowMap=new Map();
-    ROWS.forEach(r=>{if(r.email){const cur=rowMap.get(r.email);if(!cur||(r.ultAcesso||0)>(cur.ultAcesso||0))rowMap.set(r.email,r);}});
+    ROWS.forEach(r=>{
+      if(!r.email) return;
+      const cur=rowMap.get(r.email);
+      if(!cur){rowMap.set(r.email,r);return;}
+      // Priorizar quem tem dtVendaRenov
+      const curRenov=cur.dtVendaRenov?1:0;
+      const newRenov=r.dtVendaRenov?1:0;
+      if(newRenov>curRenov){rowMap.set(r.email,r);return;}
+      if(newRenov<curRenov) return;
+      // Mesmo nível: manter mais recente
+      if((r.ultAcesso||0)>(cur.ultAcesso||0)) rowMap.set(r.email,r);
+    });
     ROWS=[...rowMap.values()];
     const mcmvOnly=MCMV.filter(m=>m.email&&!fproEmailSet.has(m.email));
     const mcmvOnlyEmails=new Set(mcmvOnly.map(m=>m.email));
