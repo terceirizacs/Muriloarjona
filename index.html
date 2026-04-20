@@ -1139,12 +1139,12 @@ function pesqDonut(data,colors,size){
   }
   var sz=size||160;
   var h='<div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;justify-content:center">';
-  h+='<div style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:conic-gradient('+segs.join(',')+');display:flex;align-items:center;justify-content:center">';
+  h+='<div style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:conic-gradient('+segs.join(',')+');display:flex;align-items:center;justify-content:center;cursor:default" title="Total: '+fN(total)+'">';
   h+='<div style="width:'+(sz*0.6)+'px;height:'+(sz*0.6)+'px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-family:JetBrains Mono;font-size:20px;font-weight:700">'+fN(total)+'</div></div>';
   h+='<div style="display:flex;flex-direction:column;gap:6px">';
   for(var j=0;j<data.length;j++){
     var p2=(data[j][1]/total*100).toFixed(1);
-    h+='<div style="display:flex;align-items:center;gap:8px;font-size:13px"><div style="width:12px;height:12px;border-radius:3px;background:'+colors[j%colors.length]+'"></div>'+data[j][0]+' <span style="color:var(--t3);font-family:JetBrains Mono">'+fN(data[j][1])+' ('+p2+'%)</span></div>';
+    h+='<div style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:default" title="'+data[j][0]+': '+fN(data[j][1])+' de '+fN(total)+' ('+p2+'%)"><div style="width:12px;height:12px;border-radius:3px;background:'+colors[j%colors.length]+'"></div>'+data[j][0]+' <span style="color:var(--t3);font-family:JetBrains Mono">'+fN(data[j][1])+' ('+p2+'%)</span></div>';
   }
   h+='</div></div>';
   return h;
@@ -1157,10 +1157,11 @@ function pesqHBars(data,color){
   for(var i=0;i<data.length;i++){
     var w=max?data[i][1]/max*100:0;
     var lbl=data[i][0].length>25?data[i][0].substring(0,23)+'...':data[i][0];
-    h+='<div class="hbar-row">';
-    h+='<div class="hbar-lbl" title="'+data[i][0]+'">'+lbl+'</div>';
     var total2=0;data.forEach(function(x){total2+=x[1];});
     var pct2=total2?(data[i][1]/total2*100).toFixed(1):'0';
+    var btip=data[i][0]+': '+data[i][1]+' de '+total2+' ('+pct2+'%)';
+    h+='<div class="hbar-row" title="'+btip+'" style="cursor:default">';
+    h+='<div class="hbar-lbl" title="'+data[i][0]+'">'+lbl+'</div>';
     h+='<div class="hbar-track"><div class="hbar-fill" style="width:'+w.toFixed(1)+'%;background:'+(color||'var(--accent)')+'">'+data[i][1]+'</div></div>';
     h+='<div style="font-family:JetBrains Mono;font-size:12px;color:var(--t2);min-width:50px;text-align:right;margin-left:8px">'+pct2+'%</div>';
     h+='</div>';
