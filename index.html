@@ -255,6 +255,7 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
     <button class="tab-btn" onclick="switchTab('trilhas',this)">Trilhas</button>
     <button class="tab-btn" onclick="switchTab('financeiro',this)">Financeiro</button>
     <button class="tab-btn" onclick="switchTab('renovacao',this)">Renovação</button>
+    <button class="tab-btn" onclick="switchTab('pesquisa',this)">📋 Pesquisa</button>
     <button class="tab-btn" onclick="switchTab('alunos',this)">Alunos</button>
   </nav>
 
@@ -279,6 +280,7 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
   <div class="tab-content" id="tab-financeiro"><div id="cFinanceiro"></div></div>
   <div class="tab-content" id="tab-renovacao"><div id="cRenov"></div></div>
 
+  <div class="tab-content" id="tab-pesquisa"><div id="cPesquisa"></div></div>
   <div class="tab-content" id="tab-alunos"><div id="cAlunos"></div></div>
   <div class="footer"><strong>Terceiriza CS</strong> · Dashboard Executivo</div>
 </div>
@@ -287,7 +289,7 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
 const SENHA='Muriloarjona123';
 const API_URL='https://script.google.com/macros/s/AKfycbx1ZsRlH2hvBJtXtZLXfUkw-8190CxUC292xC5U93q45rwhFgOUH_-Y-W3APi8uttZ3kw/exec';
 
-let FPRO=[], MCMV=[], TRILHA_DATA=[], TRILHAS=[], ROWS=[], NOW=Date.now();
+let FPRO=[], MCMV=[], TRILHA_DATA=[], TRILHAS=[], ROWS=[], PESQ=[], NOW=Date.now();
 
 /* ===== LOGIN ===== */
 function doLogin(){
@@ -314,6 +316,7 @@ async function loadData(){
     MCMV=D.mcmv||[];
     TRILHA_DATA=D.trilhas||[];
     TRILHAS=D.trilhaNames||[];
+    PESQ=D.pesquisa||[];
     NOW=D.todayMs||Date.now();
 
     // Build merged ROWS: FPRO + trilha data by email
@@ -548,6 +551,7 @@ function renderAll(filtered){
   renderAlunosList(rows);
   renderFinanceiro();
   renderRenov(rows);
+  renderPesquisa();
 }
 
 /* ===== VISAO GERAL ===== */
@@ -1090,6 +1094,234 @@ function renderRenov(rows){
 function rnGo(p){RN_PAGE=p;renderRenov(ROWS);}
 function rnSort(col){if(RN_SORT===col)RN_DIR*=-1;else{RN_SORT=col;RN_DIR=col==='dias'?1:-1;}RN_PAGE=1;renderRenov(ROWS);}
 function finGo(p){window._FIN_PAGE=p;renderFinanceiro();}
+
+/* ===== PESQUISA ===== */
+function categorizePesq(texts){
+  var cats={};
+  var keywords={
+    'Conhecimento':['conhecimento','aprender','aprendizado','aprendizagem'],
+    'Vendas':['vender','vendas','venda','fechamento'],
+    'Prática':['prática','pratica','praticar','aplicar'],
+    'Financiamento':['financiamento','financiar','caixa','banco'],
+    'MCMV':['mcmv','minha casa','minhacasa'],
+    'Documentação':['documentação','documentacao','documento','burocracia'],
+    'Aprovação':['aprovação','aprovacao','aprovar','análise'],
+    'Renda':['renda','salário','salario','ganhar'],
+    'Instabilidade':['instabilidade','instavel','incerteza'],
+    'Nenhum/Nada':['nenhum','nada','não','nao','sem']
+  };
+  texts.forEach(function(t){
+    if(!t)return;
+    var low=t.toLowerCase();
+    var matched=false;
+    for(var cat in keywords){
+      var kws=keywords[cat];
+      for(var k=0;k<kws.length;k++){
+        if(low.indexOf(kws[k])!==-1){cats[cat]=(cats[cat]||0)+1;matched=true;break;}
+      }
+      if(matched)break;
+    }
+    if(!matched&&low.length>2&&low!=='.')cats['Outros']=(cats['Outros']||0)+1;
+  });
+  return Object.entries(cats).sort(function(a,b){return b[1]-a[1];}).slice(0,10);
+}
+
+function pesqDonut(data,colors,size){
+  var total=0;
+  data.forEach(function(d){total+=d[1];});
+  if(!total)return '<div style="color:var(--t3);text-align:center;padding:20px">Sem dados</div>';
+  var segs=[];var cum=0;
+  for(var i=0;i<data.length;i++){
+    var pct=data[i][1]/total*100;
+    segs.push(colors[i%colors.length]+' '+cum.toFixed(1)+'% '+(cum+pct).toFixed(1)+'%');
+    cum+=pct;
+  }
+  var sz=size||160;
+  var h='<div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;justify-content:center">';
+  h+='<div style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:conic-gradient('+segs.join(',')+');display:flex;align-items:center;justify-content:center">';
+  h+='<div style="width:'+(sz*0.6)+'px;height:'+(sz*0.6)+'px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-family:JetBrains Mono;font-size:20px;font-weight:700">'+fN(total)+'</div></div>';
+  h+='<div style="display:flex;flex-direction:column;gap:6px">';
+  for(var j=0;j<data.length;j++){
+    var p2=(data[j][1]/total*100).toFixed(1);
+    h+='<div style="display:flex;align-items:center;gap:8px;font-size:13px"><div style="width:12px;height:12px;border-radius:3px;background:'+colors[j%colors.length]+'"></div>'+data[j][0]+' <span style="color:var(--t3);font-family:JetBrains Mono">'+p2+'%</span></div>';
+  }
+  h+='</div></div>';
+  return h;
+}
+
+function pesqHBars(data,color){
+  if(!data.length)return '<div style="color:var(--t3);text-align:center;padding:20px">Sem dados</div>';
+  var max=data[0][1];
+  var h='<div class="hbar-area">';
+  for(var i=0;i<data.length;i++){
+    var w=max?data[i][1]/max*100:0;
+    var lbl=data[i][0].length>25?data[i][0].substring(0,23)+'...':data[i][0];
+    h+='<div class="hbar-row">';
+    h+='<div class="hbar-lbl" title="'+data[i][0]+'">'+lbl+'</div>';
+    h+='<div class="hbar-track"><div class="hbar-fill" style="width:'+w.toFixed(1)+'%;background:'+(color||'var(--accent)')+'">'+data[i][1]+'</div></div>';
+    h+='</div>';
+  }
+  h+='</div>';
+  return h;
+}
+
+function renderPesquisa(){
+  var cont=document.getElementById('cPesquisa');
+  if(!cont)return;
+
+  // Cross-reference pesquisa emails with FPRO to get turma
+  var emailTurma={};
+  FPRO.forEach(function(f){if(f.email)emailTurma[f.email]=f.turma;if(f.email2)emailTurma[f.email2]=f.turma;});
+
+  // Apply turma filter
+  var selTurma=getMS('fTurma');
+  var data=PESQ;
+  if(selTurma.length){
+    data=PESQ.filter(function(p){
+      var turma=emailTurma[p.email]||'';
+      return selTurma.indexOf(turma)!==-1;
+    });
+  }
+
+  var total=data.length;
+  if(!total){cont.innerHTML='<div style="color:var(--t3);text-align:center;padding:60px 20px;font-size:16px">Nenhuma resposta de pesquisa encontrada.</div>';return;}
+
+  // Count helpers
+  function countField(field){
+    var map={};
+    data.forEach(function(d){var v=d[field];if(v){map[v]=(map[v]||0)+1;}});
+    return Object.entries(map).sort(function(a,b){return b[1]-a[1];});
+  }
+
+  // KPI calculations
+  var corretores=0;
+  data.forEach(function(d){if(d.comoAtua&&d.comoAtua.toLowerCase().indexOf('corretor')!==-1)corretores++;});
+  var pctCorretores=total?corretores/total*100:0;
+
+  var primeiraVez=0;
+  data.forEach(function(d){
+    var v=(d.jaParticipou||'').toLowerCase();
+    if(v.indexOf('não')!==-1||v.indexOf('nao')!==-1||v==='não'||v==='nao'||v.indexOf('primeira')!==-1||v.indexOf('nunca')!==-1)primeiraVez++;
+  });
+  var pctPrimeiraVez=total?primeiraVez/total*100:0;
+
+  var quatro=0;
+  data.forEach(function(d){
+    var v=d.aulasAssistidas||'';
+    var n=parseInt(v);
+    if(n>=4||(v.toLowerCase().indexOf('4')!==-1&&v.toLowerCase().indexOf('mais')!==-1)||v.toLowerCase().indexOf('todas')!==-1)quatro++;
+  });
+  var pctQuatro=total?quatro/total*100:0;
+
+  var COLORS=['var(--accent)','var(--a2)','var(--teal)','var(--green)','var(--orange)','var(--gold)','var(--sky)','var(--cyan)','var(--pink)','var(--red)'];
+
+  var h='';
+
+  // KPIs
+  h+='<div class="kpis">';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total de Respostas</div><div class="kpi-v">'+fN(total)+'</div><div class="kpi-s">pesquisa completa</div></div>';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">% Corretores</div><div class="kpi-v">'+fP(pctCorretores)+'</div><div class="kpi-s">'+fN(corretores)+' de '+fN(total)+'</div></div>';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--gold))"></div><div class="kpi-l">% Primeira Vez</div><div class="kpi-v">'+fP(pctPrimeiraVez)+'</div><div class="kpi-s">'+fN(primeiraVez)+' nunca participaram</div></div>';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">% 4+ Aulas</div><div class="kpi-v">'+fP(pctQuatro)+'</div><div class="kpi-s">'+fN(quatro)+' assistiram 4+</div></div>';
+  h+='</div>';
+
+  // Seção 1: Perfil do Aluno
+  h+='<div class="sec">Perfil do Aluno</div>';
+  var generoData=countField('genero');
+  var idadeData=countField('idade');
+  var rendaData=countField('faixaRenda');
+  var atuacaoData=countField('comoAtua');
+  var tempoData=countField('tempoAtuacao');
+
+  h+='<div class="g2">';
+  h+='<div class="card"><h3>Gênero</h3><div class="d">Distribuição por gênero</div>'+pesqDonut(generoData,COLORS,160)+'</div>';
+  h+='<div class="card"><h3>Faixa Etária</h3><div class="d">Distribuição por idade</div>'+pesqHBars(idadeData,'var(--accent)')+'</div>';
+  h+='</div>';
+  h+='<div class="g2">';
+  h+='<div class="card"><h3>Faixa de Renda</h3><div class="d">Distribuição por renda</div>'+pesqHBars(rendaData,'var(--teal)')+'</div>';
+  h+='<div class="card"><h3>Atuação no Mercado</h3><div class="d">Como atua no mercado imobiliário</div>'+pesqHBars(atuacaoData,'var(--green)')+'</div>';
+  h+='</div>';
+  h+='<div class="g2">';
+  h+='<div class="card"><h3>Tempo de Atuação</h3><div class="d">Há quanto tempo atua</div>'+pesqHBars(tempoData,'var(--orange)')+'</div>';
+  h+='<div class="card"></div>';
+  h+='</div>';
+
+  // Seção 2: Sobre o Imóvel
+  h+='<div class="sec">Sobre o Imóvel</div>';
+  var tipoImovelData=countField('tipoImovel');
+  var padraoImovelData=countField('padraoImovel');
+  h+='<div class="g2">';
+  h+='<div class="card"><h3>Tipo de Imóvel</h3><div class="d">Tipos mais comuns</div>'+pesqDonut(tipoImovelData,COLORS,160)+'</div>';
+  h+='<div class="card"><h3>Padrão do Imóvel</h3><div class="d">Padrões mais comuns</div>'+pesqDonut(padraoImovelData,['var(--accent)','var(--a2)','var(--teal)','var(--green)','var(--orange)'],160)+'</div>';
+  h+='</div>';
+
+  // Seção 3: Jornada do Aluno
+  h+='<div class="sec">Jornada do Aluno</div>';
+  var ondeData=countField('ondeConheceu');
+  var jaPartData=countField('jaParticipou');
+  var aulasData=countField('aulasAssistidas');
+  var fatorData=categorizePesq(data.map(function(d){return d.fatorDecisivo;}));
+
+  h+='<div class="g2">';
+  h+='<div class="card"><h3>Onde Me Conheceu</h3><div class="d">Canais de aquisição</div>'+pesqHBars(ondeData,'var(--accent)')+'</div>';
+  h+='<div class="card"><h3>Já Participou Antes</h3><div class="d">Primeira vez ou recorrente</div>'+pesqDonut(jaPartData,['var(--green)','var(--orange)','var(--teal)'],160)+'</div>';
+  h+='</div>';
+  h+='<div class="g2">';
+  h+='<div class="card"><h3>Aulas Assistidas</h3><div class="d">Quantidade de aulas</div>'+pesqHBars(aulasData,'var(--sky)')+'</div>';
+  h+='<div class="card"><h3>Fator Decisivo</h3><div class="d">O que motivou a inscrição (top categorias)</div>'+pesqHBars(fatorData,'var(--gold)')+'</div>';
+  h+='</div>';
+
+  // Seção 4: Percepções
+  h+='<div class="sec">Percepções</div>';
+  var medoData=categorizePesq(data.map(function(d){return d.maiorMedo;}));
+  var difFinData=categorizePesq(data.map(function(d){return d.dificuldadeFinanc;}));
+  var melhorData=categorizePesq(data.map(function(d){return d.melhorCurso;}));
+  var outroData=categorizePesq(data.map(function(d){return d.outroAssunto;}));
+
+  h+='<div class="g2">';
+  h+='<div class="card"><h3>Medos sobre Profissão</h3><div class="d">Principais receios dos alunos</div>'+pesqHBars(medoData,'var(--red)')+'</div>';
+  h+='<div class="card"><h3>Dificuldade em Financiamento</h3><div class="d">Maiores obstáculos</div>'+pesqHBars(difFinData,'var(--orange)')+'</div>';
+  h+='</div>';
+  h+='<div class="g2">';
+  h+='<div class="card"><h3>O que Faria Melhor Curso</h3><div class="d">Sugestões dos alunos</div>'+pesqHBars(melhorData,'var(--teal)')+'</div>';
+  h+='<div class="card"><h3>Outros Assuntos de Interesse</h3><div class="d">Temas complementares</div>'+pesqHBars(outroData,'var(--a2)')+'</div>';
+  h+='</div>';
+
+  // Seção 5: Estados
+  h+='<div class="sec">Estados</div>';
+  var estadoData=countField('estado').slice(0,10);
+  h+='<div class="card"><h3>Top 10 Estados</h3><div class="d">Distribuição geográfica dos respondentes</div>'+pesqHBars(estadoData,'var(--accent)')+'</div>';
+
+  // Seção 6: Insights
+  h+='<div class="sec">Insights da Pesquisa</div>';
+  h+='<div class="ins-g">';
+
+  // Insight 1: principal canal
+  if(ondeData.length>0){
+    h+='<div class="ins ok"><div class="ins-t">Principal canal: '+ondeData[0][0]+'</div><div class="ins-p"><strong>'+fN(ondeData[0][1])+'</strong> respondentes ('+fP(total?ondeData[0][1]/total*100:0)+') conheceram Murilo por este canal.</div></div>';
+  }
+
+  // Insight 2: perfil predominante
+  if(atuacaoData.length>0){
+    h+='<div class="ins i"><div class="ins-t">Perfil predominante: '+atuacaoData[0][0]+'</div><div class="ins-p"><strong>'+fN(atuacaoData[0][1])+'</strong> respondentes ('+fP(total?atuacaoData[0][1]/total*100:0)+') atuam como '+atuacaoData[0][0].toLowerCase()+'.</div></div>';
+  }
+
+  // Insight 3: primeira vez
+  if(pctPrimeiraVez>50){
+    h+='<div class="ins ok"><div class="ins-t">Maioria é primeira vez</div><div class="ins-p"><strong>'+fP(pctPrimeiraVez)+'</strong> dos alunos estão participando pela primeira vez. Alta capacidade de atração de novos alunos.</div></div>';
+  }else{
+    h+='<div class="ins w"><div class="ins-t">Base recorrente</div><div class="ins-p">Apenas <strong>'+fP(pctPrimeiraVez)+'</strong> são novos. A maioria já participou antes — considerar estratégias de retenção.</div></div>';
+  }
+
+  // Insight 4: principal estado
+  if(estadoData.length>0){
+    h+='<div class="ins i"><div class="ins-t">Estado líder: '+estadoData[0][0]+'</div><div class="ins-p"><strong>'+fN(estadoData[0][1])+'</strong> respondentes ('+fP(total?estadoData[0][1]/total*100:0)+') são deste estado.</div></div>';
+  }
+
+  h+='</div>';
+
+  cont.innerHTML=h;
+}
 
 </script>
 </body>
