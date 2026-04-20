@@ -1082,48 +1082,6 @@ function renderRenov(rows){
   <div class="det-pager">${Array.from({length:pages},(_,i)=>i+1).filter(p=>p===1||p===pages||Math.abs(p-RN_PAGE)<=2).map(p=>`<button class="${p===RN_PAGE?'active':''}" onclick="rnGo(${p})">${p}</button>`).join('')}</div>
   </div>`;
 
-  // Respostas por turma
-  var turmaResp={};
-  data.forEach(function(p){
-    var turma=emailTurma[p.email]||'Sem turma';
-    turmaResp[turma]=(turmaResp[turma]||0)+1;
-  });
-  // Total alunos por turma (do FPRO)
-  var turmaTotalFpro={};
-  FPRO.forEach(function(f){if(f.turma)turmaTotalFpro[f.turma]=(turmaTotalFpro[f.turma]||0)+1;});
-  var turmaRespArr=Object.entries(turmaResp).filter(function(a){return a[0]!=='Sem turma';}).sort(function(a,b){
-    var na=parseInt((a[0].match(/\d+/)||[0])[0])||0;
-    var nb=parseInt((b[0].match(/\d+/)||[0])[0])||0;
-    return na-nb;
-  });
-  if(turmaRespArr.length>0){
-    h+='<div class="sec">Respostas por Turma</div>';
-    h+='<div class="card"><h3>% de Resposta por Turma</h3><div class="d">Respostas da pesquisa vs total de alunos por turma</div>';
-    var maxTResp=Math.max.apply(null,turmaRespArr.map(function(x){return turmaTotalFpro[x[0]]||x[1];}));
-    var colPal2=['#8b7cf7','#34d399','#38bdf8','#fb923c','#f472b6','#22d3ee','#fbbf24','#a78bfa','#2dd4bf','#f87171'];
-    h+='<div class="hbar-area">';
-    for(var ti=0;ti<turmaRespArr.length;ti++){
-      var tName=turmaRespArr[ti][0];
-      var tResp=turmaRespArr[ti][1];
-      var tTotal=turmaTotalFpro[tName]||tResp;
-      var tPct=tTotal?(tResp/tTotal*100):0;
-      var tw=maxTResp?(tTotal/maxTResp*100):0;
-      var tCol=colPal2[ti%colPal2.length];
-      h+='<div class="hbar-row">';
-      h+='<div class="hbar-lbl" title="'+tName+'">'+tName.replace('TURMA ','T').replace(/ - /,' ')+'</div>';
-      h+='<div class="hbar-track"><div class="hbar-fill" style="width:'+tw.toFixed(1)+'%;background:'+tCol+'">'+(tResp>0?tResp:'')+'</div></div>';
-      h+='<div style="display:flex;flex-direction:column;align-items:flex-end;min-width:100px;margin-left:8px">';
-      h+='<div style="font-family:JetBrains Mono;font-size:13px;font-weight:700;color:'+tCol+'">'+tPct.toFixed(1)+'%</div>';
-      h+='<div style="font-family:JetBrains Mono;font-size:11px;color:var(--t3)">'+tResp+' / '+tTotal+'</div>';
-      h+='</div></div>';
-    }
-    var semTurma=turmaResp['Sem turma']||0;
-    if(semTurma>0){
-      h+='<div style="margin-top:8px;font-size:12px;color:var(--t3)">'+fN(semTurma)+' respostas sem turma identificada</div>';
-    }
-    h+='</div></div>';
-  }
-
   // Insights
   h+=`<div class="sec">Insights de Renovação</div><div class="ins-g">`;
   if(vencidosEmails.size>0) h+=`<div class="ins w"><div class="ins-t">${fN(vencidosEmails.size)} acessos vencidos</div><div class="ins-p">Alunos com acesso expirado e sem renovação. Iniciar fluxo de reativação.</div></div>`;
