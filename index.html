@@ -1483,20 +1483,29 @@ function renderAoVivo(){
   liveKeys.forEach(k=>{const p=lives[k].palestrante||'?';if(!palCor[p])palCor[p]=corPaleta[cnti++%corPaleta.length];});
 
   // KPIs gerais (no topo)
-  let totalP=0,totalUid=new Set(),totalMin=0,totalIdentif=0;
+  let totalP=0,totalUid=new Set(),totalMin=0,totalIdentif=0,allDuracoesPart=[];
   liveKeys.forEach(k=>{
     const s=lives[k];
     totalP+=s.ids.size;
     s.ids.forEach(u=>totalUid.add(u));
     totalMin+=s.duracaoReuniao||0;
     Object.keys(s.turmas).forEach(t=>{if(t!=='Não identificado')totalIdentif+=s.turmas[t].size;});
+    s.duracoes.forEach(d=>{if(d>0)allDuracoesPart.push(d);});
   });
   const taxaIdentif=totalP>0?rd(totalIdentif/totalP*100):0;
+  const avgDuracaoAula=liveKeys.length?rd(totalMin/liveKeys.length):0;
+  const avgTempoPorAluno=allDuracoesPart.length?rd(allDuracoesPart.reduce((a,b)=>a+b,0)/allDuracoesPart.length):0;
+  const avgParticPorAula=liveKeys.length?rd(totalP/liveKeys.length):0;
+  const baseTotal=(typeof FPRO_TOTAL!=='undefined'&&FPRO_TOTAL)?FPRO_TOTAL:FPRO.length;
+  const pctMediaPartic=baseTotal>0?rd(avgParticPorAula/baseTotal*100):0;
   h+='<div class="live-kpis">';
   h+='<div class="live-kpi"><div class="live-kpi-lbl">Aulas no período</div><div class="live-kpi-val" style="color:var(--accent)">'+liveKeys.length+'</div></div>';
   h+='<div class="live-kpi"><div class="live-kpi-lbl">Participações totais</div><div class="live-kpi-val" style="color:var(--green)">'+fN(totalP)+'</div></div>';
   h+='<div class="live-kpi"><div class="live-kpi-lbl">Alunos únicos (todas)</div><div class="live-kpi-val" style="color:var(--gold)">'+fN(totalUid.size)+'</div></div>';
   h+='<div class="live-kpi"><div class="live-kpi-lbl">Identificados</div><div class="live-kpi-val" style="color:var(--teal)">'+fP(taxaIdentif)+'</div></div>';
+  h+='<div class="live-kpi"><div class="live-kpi-lbl">Duração média/aula</div><div class="live-kpi-val" style="color:var(--accent)">'+avgDuracaoAula+'<span style="font-size:14px;opacity:.7"> min</span></div></div>';
+  h+='<div class="live-kpi"><div class="live-kpi-lbl">Tempo médio/aluno</div><div class="live-kpi-val" style="color:var(--gold)">'+avgTempoPorAluno+'<span style="font-size:14px;opacity:.7"> min</span></div></div>';
+  h+='<div class="live-kpi"><div class="live-kpi-lbl">% média de participação</div><div class="live-kpi-val" style="color:var(--green)">'+fP(pctMediaPartic)+'</div><div style="font-size:10.5px;color:var(--t3);margin-top:2px">'+avgParticPorAula+' de '+baseTotal+' alunos</div></div>';
   h+='</div>';
 
   // Agrupa por palestrante
@@ -1522,24 +1531,38 @@ function renderAoVivo(){
       const diaSemana=dias[dt.getDay()];
       const tipoL=s.tipo||'Aula';
       const tituloLimpo=(s.topico||'').replace(/^\[T\d+\]\s*/,'').trim()||tipoL;
-      // Breakdown
-      const turmaKeys=Object.keys(s.turmas).sort((a,b)=>{
-        if(a==='Não identificado')return 1;
-        if(b==='Não identificado')return -1;
-        const na=String(a).localeCompare(String(b),'pt');
-        return na;
-      });
-      let bd='';
-      turmaKeys.forEach(t=>{
+      // Breakdown: separa grandes (≥5) das pequenas (<5), ordena desc
+      const grandes=[],pequenas=[];let naoIdRow=null;
+      Object.keys(s.turmas).forEach(t=>{
         const cnt=s.turmas[t].size;
+        if(t==='Não identificado'){naoIdRow={name:t,count:cnt,label:t};return;}
+        if(cnt<5)pequenas.push({name:t,count:cnt});
+        else grandes.push({name:t,count:cnt,label:t});
+      });
+      grandes.sort((a,b)=>b.count-a.count);
+      pequenas.sort((a,b)=>b.count-a.count);
+      const breakdownRows=grandes.slice();
+      if(pequenas.length){
+        const totalPeq=pequenas.reduce((a,b)=>a+b.count,0);
+        const nomes=pequenas.map(p=>p.name).join(', ');
+        breakdownRows.push({name:'Outras',count:totalPeq,label:'Outras turmas: '+nomes+' (até 5)',isSmall:true});
+      }
+      if(naoIdRow)breakdownRows.push(naoIdRow);
+      let bd='';
+      breakdownRows.forEach(row=>{
+        const t=row.name,cnt=row.count;
         const pct=nP>0?rd(cnt/nP*100):0;
-        const corT=t==='Não identificado'?'var(--t3)':cor;
-        bd+='<div class="lp-row">';
-        bd+='<span class="lp-tag" style="background:'+corT+'22;color:'+corT+';border:1px solid '+corT+'44">'+t+'</span>';
+        const corT=t==='Não identificado'?'var(--t3)':(row.isSmall?'var(--t2)':cor);
+        const tagTxt=row.isSmall?'Outras':t;
+        bd+='<div class="lp-row" title="'+(row.label||'').replace(/"/g,'&quot;')+'">';
+        bd+='<span class="lp-tag" style="background:'+corT+'22;color:'+corT+';border:1px solid '+corT+'44">'+tagTxt+'</span>';
         bd+='<div class="lp-bar"><div class="lp-fill" style="width:'+pct+'%;background:'+corT+'"></div></div>';
         bd+='<span class="lp-cnt">'+cnt+'</span>';
         bd+='<span class="lp-pct">'+fP(pct)+'</span>';
         bd+='</div>';
+        if(row.isSmall){
+          bd+='<div style="font-size:10.5px;color:var(--t3);margin:-2px 0 4px 90px;font-family:JetBrains Mono">'+row.label+'</div>';
+        }
       });
       h+='<div class="live-card" style="border-left:4px solid '+cor+'">';
       h+='<div class="lc-head"><span class="lc-tag" style="background:'+cor+'">'+tipoL+'</span><span class="lc-date">'+diaSemana+' · '+dtLabel+'</span></div>';
