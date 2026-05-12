@@ -1501,13 +1501,12 @@ function renderAoVivo(){
       const turmaReal=resolveTurma(em,r.nomeParticipante);
       if(!lives[k].turmas[turmaReal])lives[k].turmas[turmaReal]=new Set();
       lives[k].turmas[turmaReal].add(uid);
-      lives[k].participantes.push({nome:r.nomeParticipante,email:em,turma:turmaReal,duracao:r.duracao||0});
+      lives[k].participantes.push({uid:uid,nome:r.nomeParticipante,email:em,turma:turmaReal,duracao:(typeof r.duracao==='number'&&r.duracao>0)?r.duracao:0});
     } else {
-      // acumula duração se mesmo aluno tem múltiplos registros
-      const p=lives[k].participantes.find(x=>x.email===em||normNomeAV(x.nome)===normNomeAV(r.nomeParticipante));
-      if(p&&typeof r.duracao==='number')p.duracao=Math.max(p.duracao,r.duracao);
+      // Mesmo aluno reentrou: SOMA a duração (não pega o maior)
+      const p=lives[k].participantes.find(x=>x.uid===uid);
+      if(p&&typeof r.duracao==='number'&&r.duracao>0)p.duracao+=r.duracao;
     }
-    if(r.duracao>0)lives[k].duracoes.push(r.duracao);
   });
 
   // Meses disponíveis
@@ -1567,22 +1566,23 @@ function renderAoVivo(){
     s.ids.forEach(u=>totalUid.add(u));
     totalMin+=s.duracaoReuniao||0;
     Object.keys(s.turmas).forEach(t=>{if(t!=='Não identificado')totalIdentif+=s.turmas[t].size;});
-    s.duracoes.forEach(d=>{if(d>0)allDuracoesPart.push(d);});
+    // Tempo por aluno = duração total somada (entra+sai consolidados na soma)
+    s.participantes.forEach(p=>{if(p.duracao>0)allDuracoesPart.push(p.duracao);});
   });
   const taxaIdentif=totalP>0?Math.round(totalIdentif/totalP*100):0;
   const avgDuracaoAula=liveKeys.length?Math.round(totalMin/liveKeys.length):0;
   const avgTempoPorAluno=allDuracoesPart.length?Math.round(allDuracoesPart.reduce((a,b)=>a+b,0)/allDuracoesPart.length):0;
-  const avgParticPorAula=liveKeys.length?Math.round(totalP/liveKeys.length):0;
   const baseTotal=totalAtivosBase>0?totalAtivosBase:FPRO.length;
-  const pctMediaPartic=baseTotal>0?Math.round(avgParticPorAula/baseTotal*100):0;
+  // % Cobertura = alunos únicos (em qualquer aula) ÷ base de ativos
+  const pctCobertura=baseTotal>0?Math.round(totalUid.size/baseTotal*100):0;
   h+='<div class="live-kpis">';
   h+='<div class="live-kpi"><div class="live-kpi-lbl">Aulas no período</div><div class="live-kpi-val" style="color:var(--accent)">'+liveKeys.length+'</div></div>';
-  h+='<div class="live-kpi"><div class="live-kpi-lbl">Participações totais</div><div class="live-kpi-val" style="color:var(--green)">'+fN(totalP)+'</div></div>';
-  h+='<div class="live-kpi"><div class="live-kpi-lbl">Alunos únicos (todas)</div><div class="live-kpi-val" style="color:var(--gold)">'+fN(totalUid.size)+'</div></div>';
+  h+='<div class="live-kpi"><div class="live-kpi-lbl">Participações totais</div><div class="live-kpi-val" style="color:var(--green)">'+fN(totalP)+'</div><div style="font-size:10.5px;color:var(--t3);margin-top:2px">soma de presenças</div></div>';
+  h+='<div class="live-kpi"><div class="live-kpi-lbl">Alunos únicos</div><div class="live-kpi-val" style="color:var(--gold)">'+fN(totalUid.size)+'</div><div style="font-size:10.5px;color:var(--t3);margin-top:2px">vieram a ≥1 aula</div></div>';
   h+='<div class="live-kpi"><div class="live-kpi-lbl">Identificados</div><div class="live-kpi-val" style="color:var(--teal)">'+taxaIdentif+'%</div></div>';
   h+='<div class="live-kpi"><div class="live-kpi-lbl">Duração média/aula</div><div class="live-kpi-val" style="color:var(--accent)">'+avgDuracaoAula+'<span style="font-size:14px;opacity:.7"> min</span></div></div>';
-  h+='<div class="live-kpi"><div class="live-kpi-lbl">Tempo médio/aluno</div><div class="live-kpi-val" style="color:var(--gold)">'+avgTempoPorAluno+'<span style="font-size:14px;opacity:.7"> min</span></div></div>';
-  h+='<div class="live-kpi"><div class="live-kpi-lbl">% média de participação</div><div class="live-kpi-val" style="color:var(--green)">'+pctMediaPartic+'%</div><div style="font-size:10.5px;color:var(--t3);margin-top:2px">'+avgParticPorAula+' de '+fN(baseTotal)+' alunos ativos</div></div>';
+  h+='<div class="live-kpi"><div class="live-kpi-lbl">Tempo médio/aluno</div><div class="live-kpi-val" style="color:var(--gold)">'+avgTempoPorAluno+'<span style="font-size:14px;opacity:.7"> min</span></div><div style="font-size:10.5px;color:var(--t3);margin-top:2px">somando reentradas</div></div>';
+  h+='<div class="live-kpi"><div class="live-kpi-lbl">% Cobertura</div><div class="live-kpi-val" style="color:var(--green)">'+pctCobertura+'%</div><div style="font-size:10.5px;color:var(--t3);margin-top:2px">'+fN(totalUid.size)+' de '+fN(baseTotal)+' ativos</div></div>';
   h+='</div>';
 
   // Agrupa por palestrante, ordenado pela live mais recente (desc)
@@ -1607,7 +1607,7 @@ function renderAoVivo(){
     ks.forEach(k=>{
       const s=lives[k];
       const nP=s.ids.size;
-      const avgDur=s.duracoes.length?Math.round(s.duracoes.reduce((a,b)=>a+b,0)/s.duracoes.length):0;
+      const avgDur=s.participantes.length?Math.round(s.participantes.reduce((a,p)=>a+(p.duracao||0),0)/s.participantes.length):0;
       const dt=s.data;
       const dtLabel=String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0');
       const diaSemana=dias[dt.getDay()];
