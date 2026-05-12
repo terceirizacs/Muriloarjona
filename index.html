@@ -212,6 +212,38 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
 .cross-sub{font-size:12px;color:var(--t2);margin-top:4px}
 .cross-bar{height:6px;background:var(--track-bg);border-radius:4px;overflow:hidden;margin-top:14px}
 .cross-bar-fill{height:100%;border-radius:4px}
+
+/* === Aulas Ao Vivo === */
+.live-grid{display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:20px}
+@media(min-width:768px){.live-grid{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:1200px){.live-grid{grid-template-columns:repeat(3,1fr)}}
+.live-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;transition:all .3s;display:flex;flex-direction:column;gap:12px}
+.live-card:hover{border-color:var(--bh);box-shadow:0 12px 32px var(--shadow);transform:translateY(-2px)}
+.lc-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.lc-tag{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;padding:5px 11px;border-radius:8px;letter-spacing:.5px;color:#fff}
+.lc-date{font-size:12px;color:var(--t3);font-weight:500}
+.lc-title{font-size:14px;font-weight:600;color:var(--t1);line-height:1.3;min-height:36px}
+.lc-stats{display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.lc-stat{flex:1;text-align:center;min-width:0}
+.lc-stat-val{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;letter-spacing:-1px}
+.lc-stat-lbl{font-size:10.5px;color:var(--t3);margin-top:2px}
+.lc-bd-title{font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;font-weight:600}
+.lc-bd{display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto}
+.lp-row{display:flex;align-items:center;gap:8px;font-size:12px}
+.lp-tag{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px;min-width:80px;text-align:center}
+.lp-bar{flex:1;height:8px;background:var(--track-bg);border-radius:4px;overflow:hidden}
+.lp-fill{height:100%;border-radius:4px;transition:width .6s}
+.lp-cnt{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--t1);min-width:28px;text-align:right}
+.lp-pct{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--t2);min-width:42px;text-align:right}
+.live-kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:8px}
+@media(min-width:768px){.live-kpis{grid-template-columns:repeat(4,1fr)}}
+.live-kpi{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 18px;text-align:center}
+.live-kpi-lbl{font-size:11.5px;color:var(--t3);font-weight:500}
+.live-kpi-val{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;letter-spacing:-1px;margin-top:4px}
+.av-section-head{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin:24px 0 14px;border-left:4px solid var(--accent)}
+.av-section-tag{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;padding:5px 12px;border-radius:8px;color:#fff}
+.av-section-meta{font-size:12.5px;color:var(--t2);font-family:'JetBrains Mono',monospace}
+.av-empty{text-align:center;padding:40px 20px;color:var(--t3);font-size:13px}
 </style>
 </head>
 <body>
@@ -256,6 +288,7 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
     <button class="tab-btn" onclick="switchTab('financeiro',this)">Financeiro</button>
     <button class="tab-btn" onclick="switchTab('renovacao',this)">Renovação</button>
     <button class="tab-btn" onclick="switchTab('pesquisa',this)">📋 Pesquisa</button>
+    <button class="tab-btn" onclick="switchTab('aovivo',this)">📹 Ao Vivo</button>
     <button class="tab-btn" onclick="switchTab('alunos',this)">Alunos</button>
   </nav>
 
@@ -281,6 +314,7 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
   <div class="tab-content" id="tab-renovacao"><div id="cRenov"></div></div>
 
   <div class="tab-content" id="tab-pesquisa"><div id="cPesquisa"></div></div>
+  <div class="tab-content" id="tab-aovivo"><div id="cAoVivo"></div></div>
   <div class="tab-content" id="tab-alunos"><div id="cAlunos"></div></div>
   <div class="footer"><strong>Terceiriza CS</strong> · Dashboard Executivo</div>
 </div>
@@ -290,7 +324,7 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
 const SENHA='Muriloarjona123';
 const API_URL='https://script.google.com/macros/s/AKfycbx1ZsRlH2hvBJtXtZLXfUkw-8190CxUC292xC5U93q45rwhFgOUH_-Y-W3APi8uttZ3kw/exec';
 
-let FPRO=[], MCMV=[], TRILHA_DATA=[], TRILHAS=[], ROWS=[], PESQ=[], NOW=Date.now();
+let FPRO=[], MCMV=[], TRILHA_DATA=[], TRILHAS=[], ROWS=[], PESQ=[], AV=[], AV_AULAS=[], NOW=Date.now();
 
 /* ===== LOGIN ===== */
 function doLogin(){
@@ -318,6 +352,8 @@ async function loadData(){
     TRILHA_DATA=D.trilhas||[];
     TRILHAS=D.trilhaNames||[];
     PESQ=D.pesquisa||[];
+    AV=D.aoVivo||[];
+    AV_AULAS=D.aoVivoAulas||[];
     NOW=D.todayMs||Date.now();
 
     // Build merged ROWS: FPRO + trilha data by email
@@ -553,6 +589,7 @@ function renderAll(filtered){
   renderFinanceiro();
   renderRenov(rows);
   renderPesquisa();
+  renderAoVivo();
 }
 
 /* ===== VISAO GERAL ===== */
@@ -1338,6 +1375,185 @@ function renderPesquisa(){
   }
 
   h+='</div>';
+
+  cont.innerHTML=h;
+}
+
+/* ===== AO VIVO ===== */
+function normNomeAV(s){return (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();}
+
+function renderAoVivo(){
+  const cont=document.getElementById('cAoVivo');
+  if(!AV||!AV.length){
+    cont.innerHTML='<div class="av-empty">Nenhuma aula ao vivo encontrada na pasta do Drive. Verifique se o GAS foi redeployado.</div>';
+    return;
+  }
+  const dias=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  const meses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  // Mapas email → turma e nome → turma (FPRO prioritário, depois MCMV)
+  const emailTurma={}, nomeTurma={};
+  const addEmail=(em,t)=>{if(em&&t&&!emailTurma[em])emailTurma[em]=t;};
+  const addNome=(nm,t)=>{if(nm&&t&&!nomeTurma[nm])nomeTurma[nm]=t;};
+  FPRO.forEach(r=>{
+    const t=(r.turma||'').toString().trim();
+    if(!t)return;
+    addEmail((r.email||'').toLowerCase(),t);
+    if(r.email2)addEmail((r.email2||'').toLowerCase(),t);
+    addNome(normNomeAV(r.nome),t);
+  });
+  MCMV.forEach(r=>{
+    const t=(r.turma||'').toString().trim();
+    if(!t)return;
+    addEmail((r.email||'').toLowerCase(),t);
+    addNome(normNomeAV(r.nome),t);
+  });
+
+  function resolveTurma(em, nm){
+    if(em && emailTurma[em]) return emailTurma[em];
+    const n=normNomeAV(nm);
+    if(n && nomeTurma[n]) return nomeTurma[n];
+    return 'Não identificado';
+  }
+
+  // Filtro de turma (se houver)
+  const ftAV=getMS('fTurma');
+
+  // Agrupa por (data + palestrante) — cada aula é uma live
+  const lives={};
+  AV.forEach(r=>{
+    if(!r.nomeParticipante)return;
+    if(r.nomeParticipante.includes('Host')||r.nomeParticipante.includes('Broadcast')){
+      // host conta só pra duração da reunião
+      const dt=new Date(r.dtInicio);
+      const k=r.dtChave+'|'+(r.palestrante||'?');
+      if(!lives[k])lives[k]={data:dt,palestrante:r.palestrante,tipo:r.tipoAula,topico:r.topico,ids:new Set(),turmas:{},duracoes:[],duracaoReuniao:0,participantes:[]};
+      if(typeof r.duracaoReuniao==='number'&&r.duracaoReuniao>lives[k].duracaoReuniao)lives[k].duracaoReuniao=r.duracaoReuniao;
+      if(typeof r.duracao==='number'&&r.duracao>lives[k].duracaoReuniao)lives[k].duracaoReuniao=r.duracao;
+      return;
+    }
+    const dt=new Date(r.dtInicio);
+    const k=r.dtChave+'|'+(r.palestrante||'?');
+    if(!lives[k])lives[k]={data:dt,palestrante:r.palestrante,tipo:r.tipoAula,topico:r.topico,ids:new Set(),turmas:{},duracoes:[],duracaoReuniao:0,participantes:[]};
+    if(typeof r.duracaoReuniao==='number'&&r.duracaoReuniao>lives[k].duracaoReuniao)lives[k].duracaoReuniao=r.duracaoReuniao;
+    if(typeof r.duracao==='number'&&r.duracao>lives[k].duracaoReuniao)lives[k].duracaoReuniao=r.duracao;
+    const em=(r.emailParticipante||'').toLowerCase();
+    const uid=em||('nome:'+normNomeAV(r.nomeParticipante));
+    if(!lives[k].ids.has(uid)){
+      lives[k].ids.add(uid);
+      const turmaReal=resolveTurma(em,r.nomeParticipante);
+      if(!lives[k].turmas[turmaReal])lives[k].turmas[turmaReal]=new Set();
+      lives[k].turmas[turmaReal].add(uid);
+      lives[k].participantes.push({nome:r.nomeParticipante,email:em,turma:turmaReal,duracao:r.duracao||0});
+    } else {
+      // acumula duração se mesmo aluno tem múltiplos registros
+      const p=lives[k].participantes.find(x=>x.email===em||normNomeAV(x.nome)===normNomeAV(r.nomeParticipante));
+      if(p&&typeof r.duracao==='number')p.duracao=Math.max(p.duracao,r.duracao);
+    }
+    if(r.duracao>0)lives[k].duracoes.push(r.duracao);
+  });
+
+  // Aplica filtro: se ftAV ativo, mantém só lives onde alguma turma filtrada participou
+  const liveKeys=Object.keys(lives).filter(k=>{
+    if(lives[k].ids.size===0)return false;
+    if(!ftAV.length)return true;
+    return ftAV.some(t=>lives[k].turmas[t]&&lives[k].turmas[t].size>0);
+  }).sort((a,b)=>lives[b].data-lives[a].data);
+
+  let h='';
+  // Cabeçalho
+  h+='<div class="sec">📹 Aulas Ao Vivo</div>';
+  if(ftAV.length){
+    h+='<div style="margin:-12px 0 18px;font-size:12px;color:var(--t3);font-family:JetBrains Mono">Filtrando por turma: '+ftAV.join(' · ')+(liveKeys.length?'':' (nenhuma aula com essas turmas)')+'</div>';
+  } else {
+    h+='<div style="margin:-12px 0 18px;font-size:12px;color:var(--t3);font-family:JetBrains Mono">Mostrando todas as aulas registradas. Filtre por turma pra ver participação específica.</div>';
+  }
+
+  if(!liveKeys.length){
+    h+='<div class="av-empty">Nenhuma aula ao vivo encontrada para o filtro atual.</div>';
+    cont.innerHTML=h;
+    return;
+  }
+
+  // Paleta por palestrante
+  const corPaleta=['#8b7cf7','#f472b6','#fbbf24','#2dd4bf','#38bdf8','#fb923c','#34d399','#a78bfa'];
+  const palCor={};
+  let cnti=0;
+  liveKeys.forEach(k=>{const p=lives[k].palestrante||'?';if(!palCor[p])palCor[p]=corPaleta[cnti++%corPaleta.length];});
+
+  // KPIs gerais (no topo)
+  let totalP=0,totalUid=new Set(),totalMin=0,totalIdentif=0;
+  liveKeys.forEach(k=>{
+    const s=lives[k];
+    totalP+=s.ids.size;
+    s.ids.forEach(u=>totalUid.add(u));
+    totalMin+=s.duracaoReuniao||0;
+    Object.keys(s.turmas).forEach(t=>{if(t!=='Não identificado')totalIdentif+=s.turmas[t].size;});
+  });
+  const taxaIdentif=totalP>0?rd(totalIdentif/totalP*100):0;
+  h+='<div class="live-kpis">';
+  h+='<div class="live-kpi"><div class="live-kpi-lbl">Aulas no período</div><div class="live-kpi-val" style="color:var(--accent)">'+liveKeys.length+'</div></div>';
+  h+='<div class="live-kpi"><div class="live-kpi-lbl">Participações totais</div><div class="live-kpi-val" style="color:var(--green)">'+fN(totalP)+'</div></div>';
+  h+='<div class="live-kpi"><div class="live-kpi-lbl">Alunos únicos (todas)</div><div class="live-kpi-val" style="color:var(--gold)">'+fN(totalUid.size)+'</div></div>';
+  h+='<div class="live-kpi"><div class="live-kpi-lbl">Identificados</div><div class="live-kpi-val" style="color:var(--teal)">'+fP(taxaIdentif)+'</div></div>';
+  h+='</div>';
+
+  // Agrupa por palestrante
+  const porPal={};
+  liveKeys.forEach(k=>{const p=lives[k].palestrante||'?';if(!porPal[p])porPal[p]=[];porPal[p].push(k);});
+  const palOrder=Object.keys(porPal).sort();
+
+  palOrder.forEach(pal=>{
+    const cor=palCor[pal];
+    const ks=porPal[pal];
+    let tA=ks.length,tP=0;ks.forEach(k=>tP+=lives[k].ids.size);
+    h+='<div class="av-section-head" style="border-left-color:'+cor+'">';
+    h+='<span class="av-section-tag" style="background:'+cor+'">'+pal+'</span>';
+    h+='<span class="av-section-meta">'+tA+' aula'+(tA>1?'s':'')+' · '+fN(tP)+' participação'+(tP>1?'ões':'')+'</span>';
+    h+='</div>';
+    h+='<div class="live-grid">';
+    ks.forEach(k=>{
+      const s=lives[k];
+      const nP=s.ids.size;
+      const avgDur=s.duracoes.length?rd(s.duracoes.reduce((a,b)=>a+b,0)/s.duracoes.length):0;
+      const dt=s.data;
+      const dtLabel=String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0');
+      const diaSemana=dias[dt.getDay()];
+      const tipoL=s.tipo||'Aula';
+      const tituloLimpo=(s.topico||'').replace(/^\[T\d+\]\s*/,'').trim()||tipoL;
+      // Breakdown
+      const turmaKeys=Object.keys(s.turmas).sort((a,b)=>{
+        if(a==='Não identificado')return 1;
+        if(b==='Não identificado')return -1;
+        const na=String(a).localeCompare(String(b),'pt');
+        return na;
+      });
+      let bd='';
+      turmaKeys.forEach(t=>{
+        const cnt=s.turmas[t].size;
+        const pct=nP>0?rd(cnt/nP*100):0;
+        const corT=t==='Não identificado'?'var(--t3)':cor;
+        bd+='<div class="lp-row">';
+        bd+='<span class="lp-tag" style="background:'+corT+'22;color:'+corT+';border:1px solid '+corT+'44">'+t+'</span>';
+        bd+='<div class="lp-bar"><div class="lp-fill" style="width:'+pct+'%;background:'+corT+'"></div></div>';
+        bd+='<span class="lp-cnt">'+cnt+'</span>';
+        bd+='<span class="lp-pct">'+fP(pct)+'</span>';
+        bd+='</div>';
+      });
+      h+='<div class="live-card" style="border-left:4px solid '+cor+'">';
+      h+='<div class="lc-head"><span class="lc-tag" style="background:'+cor+'">'+tipoL+'</span><span class="lc-date">'+diaSemana+' · '+dtLabel+'</span></div>';
+      h+='<div class="lc-title">'+tituloLimpo+'</div>';
+      h+='<div class="lc-stats">';
+      h+='<div class="lc-stat"><div class="lc-stat-val" style="color:'+cor+'">'+fN(nP)+'</div><div class="lc-stat-lbl">participantes</div></div>';
+      h+='<div class="lc-stat"><div class="lc-stat-val">'+(s.duracaoReuniao||0)+'</div><div class="lc-stat-lbl">min de reunião</div></div>';
+      h+='<div class="lc-stat"><div class="lc-stat-val">'+avgDur.toFixed(0)+'</div><div class="lc-stat-lbl">min médio/pessoa</div></div>';
+      h+='</div>';
+      h+='<div class="lc-bd-title">Quem participou</div>';
+      h+='<div class="lc-bd">'+bd+'</div>';
+      h+='</div>';
+    });
+    h+='</div>';
+  });
 
   cont.innerHTML=h;
 }
