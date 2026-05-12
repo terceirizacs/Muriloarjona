@@ -244,6 +244,11 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
 .av-section-tag{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;padding:5px 12px;border-radius:8px;color:#fff}
 .av-section-meta{font-size:12.5px;color:var(--t2);font-family:'JetBrains Mono',monospace}
 .av-empty{text-align:center;padding:40px 20px;color:var(--t3);font-size:13px}
+.av-chips{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+.av-chip{padding:6px 14px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;font-family:'JetBrains Mono',monospace}
+.av-chip:hover{border-color:var(--bh);color:var(--t1)}
+.av-chip.active{background:linear-gradient(135deg,var(--accent),var(--a2));color:#fff;border-color:transparent}
+.lp-pct-turma{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--t3);min-width:78px;text-align:right}
 </style>
 </head>
 <body>
@@ -1381,7 +1386,27 @@ function renderPesquisa(){
 }
 
 /* ===== AO VIVO ===== */
-function normNomeAV(s){return (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();}
+function normNomeAV(s){return (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();}
+function normEmailAV(e){
+  if(!e)return '';
+  e=e.toString().toLowerCase().trim();
+  const at=e.indexOf('@');
+  if(at<0)return e;
+  let user=e.substring(0,at),dom=e.substring(at+1);
+  if(dom.indexOf('gmail')>=0||dom.indexOf('googlemail')>=0){
+    user=user.replace(/\./g,'').replace(/\+.*$/,'');
+  }
+  return user+'@'+dom;
+}
+function normNomeShortAV(s){
+  const w=normNomeAV(s).split(' ').filter(x=>x.length>1);
+  if(!w.length)return '';
+  if(w.length===1)return w[0];
+  return w[0]+' '+w[w.length-1];
+}
+
+let _AV_MONTH='';
+window.setAvMonth=function(m){_AV_MONTH=m;renderAoVivo();};
 
 function renderAoVivo(){
   const cont=document.getElementById('cAoVivo');
@@ -1391,34 +1416,65 @@ function renderAoVivo(){
   }
   const dias=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
   const meses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const mesesFull=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-  // Mapas email → turma e nome → turma (FPRO prioritário, depois MCMV)
-  const emailTurma={}, nomeTurma={};
-  const addEmail=(em,t)=>{if(em&&t&&!emailTurma[em])emailTurma[em]=t;};
-  const addNome=(nm,t)=>{if(nm&&t&&!nomeTurma[nm])nomeTurma[nm]=t;};
-  FPRO.forEach(r=>{
-    const t=(r.turma||'').toString().trim();
+  // Mapas múltiplos: email exato, email normalizado (gmail), nome completo, nome curto (primeiro+último)
+  const emailTurma={}, emailNormTurma={}, nomeTurma={}, nomeShortTurma={};
+  function addAll(em, em2, nm, t){
     if(!t)return;
-    addEmail((r.email||'').toLowerCase(),t);
-    if(r.email2)addEmail((r.email2||'').toLowerCase(),t);
-    addNome(normNomeAV(r.nome),t);
-  });
-  MCMV.forEach(r=>{
-    const t=(r.turma||'').toString().trim();
-    if(!t)return;
-    addEmail((r.email||'').toLowerCase(),t);
-    addNome(normNomeAV(r.nome),t);
-  });
+    if(em){
+      const eL=em.toLowerCase();
+      if(!emailTurma[eL])emailTurma[eL]=t;
+      const eN=normEmailAV(em);
+      if(eN&&!emailNormTurma[eN])emailNormTurma[eN]=t;
+    }
+    if(em2){
+      const eL=em2.toLowerCase();
+      if(!emailTurma[eL])emailTurma[eL]=t;
+      const eN=normEmailAV(em2);
+      if(eN&&!emailNormTurma[eN])emailNormTurma[eN]=t;
+    }
+    if(nm){
+      const nF=normNomeAV(nm);
+      if(nF&&!nomeTurma[nF])nomeTurma[nF]=t;
+      const nS=normNomeShortAV(nm);
+      if(nS&&!nomeShortTurma[nS])nomeShortTurma[nS]=t;
+    }
+  }
+  FPRO.forEach(r=>addAll(r.email,r.email2,r.nome,(r.turma||'').toString().trim()));
+  MCMV.forEach(r=>addAll(r.email,'',r.nome,(r.turma||'').toString().trim()));
 
   function resolveTurma(em, nm){
-    if(em && emailTurma[em]) return emailTurma[em];
-    const n=normNomeAV(nm);
-    if(n && nomeTurma[n]) return nomeTurma[n];
+    if(em){
+      const eL=em.toLowerCase();
+      if(emailTurma[eL])return emailTurma[eL];
+      const eN=normEmailAV(em);
+      if(eN&&emailNormTurma[eN])return emailNormTurma[eN];
+    }
+    if(nm){
+      const nF=normNomeAV(nm);
+      if(nF&&nomeTurma[nF])return nomeTurma[nF];
+      const nS=normNomeShortAV(nm);
+      if(nS&&nomeShortTurma[nS])return nomeShortTurma[nS];
+    }
     return 'Não identificado';
   }
 
-  // Filtro de turma (se houver)
+  // Ativos por turma (pra calcular % da turma que participa)
+  const ativosPorTurma={};
+  let totalAtivosBase=0;
+  FPRO.forEach(f=>{
+    if(!isAtivo(f))return;
+    totalAtivosBase++;
+    const t=(f.turma||'').toString().trim();
+    if(t)ativosPorTurma[t]=(ativosPorTurma[t]||0)+1;
+  });
+
+  // Filtros: turma, data range, mês (chips inline)
   const ftAV=getMS('fTurma');
+  const fDeEl=document.getElementById('fDe'),fAteEl=document.getElementById('fAte');
+  const fDeTs=fDeEl&&fDeEl.value?new Date(fDeEl.value).getTime():null;
+  const fAteTs=fAteEl&&fAteEl.value?new Date(fAteEl.value+'T23:59:59').getTime():null;
 
   // Agrupa por (data + palestrante) — cada aula é uma live
   const lives={};
@@ -1454,20 +1510,41 @@ function renderAoVivo(){
     if(r.duracao>0)lives[k].duracoes.push(r.duracao);
   });
 
-  // Aplica filtro: se ftAV ativo, mantém só lives onde alguma turma filtrada participou
+  // Meses disponíveis
+  const mesesAvail={};
+  Object.values(lives).forEach(s=>{const k=(s.data.getMonth()+1)+'-'+s.data.getFullYear();if(!mesesAvail[k])mesesAvail[k]={m:s.data.getMonth(),y:s.data.getFullYear(),k:k};});
+  const mesesArr=Object.values(mesesAvail).sort((a,b)=>(b.y-a.y)||(b.m-a.m));
+
+  // Aplica filtros: turma (live tem participante daquela turma) + data + mês
   const liveKeys=Object.keys(lives).filter(k=>{
-    if(lives[k].ids.size===0)return false;
-    if(!ftAV.length)return true;
-    return ftAV.some(t=>lives[k].turmas[t]&&lives[k].turmas[t].size>0);
+    const s=lives[k];
+    if(s.ids.size===0)return false;
+    if(fDeTs&&s.data.getTime()<fDeTs)return false;
+    if(fAteTs&&s.data.getTime()>fAteTs)return false;
+    if(_AV_MONTH){
+      const mk=(s.data.getMonth()+1)+'-'+s.data.getFullYear();
+      if(mk!==_AV_MONTH)return false;
+    }
+    if(ftAV.length){
+      if(!ftAV.some(t=>s.turmas[t]&&s.turmas[t].size>0))return false;
+    }
+    return true;
   }).sort((a,b)=>lives[b].data-lives[a].data);
 
   let h='';
   // Cabeçalho
   h+='<div class="sec">📹 Aulas Ao Vivo</div>';
+
+  // Chips de mês
+  h+='<div class="av-chips">';
+  h+='<button class="av-chip'+(_AV_MONTH===''?' active':'')+'" onclick="setAvMonth(\'\')">Todos os meses</button>';
+  mesesArr.forEach(mi=>{
+    h+='<button class="av-chip'+(_AV_MONTH===mi.k?' active':'')+'" onclick="setAvMonth(\''+mi.k+'\')">'+mesesFull[mi.m]+' '+mi.y+'</button>';
+  });
+  h+='</div>';
+
   if(ftAV.length){
-    h+='<div style="margin:-12px 0 18px;font-size:12px;color:var(--t3);font-family:JetBrains Mono">Filtrando por turma: '+ftAV.join(' · ')+(liveKeys.length?'':' (nenhuma aula com essas turmas)')+'</div>';
-  } else {
-    h+='<div style="margin:-12px 0 18px;font-size:12px;color:var(--t3);font-family:JetBrains Mono">Mostrando todas as aulas registradas. Filtre por turma pra ver participação específica.</div>';
+    h+='<div style="margin:0 0 14px;font-size:12px;color:var(--t3);font-family:JetBrains Mono">Filtrando por turma: '+ftAV.join(' · ')+(liveKeys.length?'':' (nenhuma aula com essas turmas)')+'</div>';
   }
 
   if(!liveKeys.length){
@@ -1492,22 +1569,20 @@ function renderAoVivo(){
     Object.keys(s.turmas).forEach(t=>{if(t!=='Não identificado')totalIdentif+=s.turmas[t].size;});
     s.duracoes.forEach(d=>{if(d>0)allDuracoesPart.push(d);});
   });
-  const taxaIdentif=totalP>0?rd(totalIdentif/totalP*100):0;
-  const avgDuracaoAula=liveKeys.length?rd(totalMin/liveKeys.length):0;
-  const avgTempoPorAluno=allDuracoesPart.length?rd(allDuracoesPart.reduce((a,b)=>a+b,0)/allDuracoesPart.length):0;
-  const avgParticPorAula=liveKeys.length?rd(totalP/liveKeys.length):0;
-  // Base = alunos ATIVOS na mentoria (regra do isAtivo)
-  const baseAtivos=FPRO.filter(f=>isAtivo(f)).length;
-  const baseTotal=baseAtivos>0?baseAtivos:FPRO.length;
-  const pctMediaPartic=baseTotal>0?rd(avgParticPorAula/baseTotal*100):0;
+  const taxaIdentif=totalP>0?Math.round(totalIdentif/totalP*100):0;
+  const avgDuracaoAula=liveKeys.length?Math.round(totalMin/liveKeys.length):0;
+  const avgTempoPorAluno=allDuracoesPart.length?Math.round(allDuracoesPart.reduce((a,b)=>a+b,0)/allDuracoesPart.length):0;
+  const avgParticPorAula=liveKeys.length?Math.round(totalP/liveKeys.length):0;
+  const baseTotal=totalAtivosBase>0?totalAtivosBase:FPRO.length;
+  const pctMediaPartic=baseTotal>0?Math.round(avgParticPorAula/baseTotal*100):0;
   h+='<div class="live-kpis">';
   h+='<div class="live-kpi"><div class="live-kpi-lbl">Aulas no período</div><div class="live-kpi-val" style="color:var(--accent)">'+liveKeys.length+'</div></div>';
   h+='<div class="live-kpi"><div class="live-kpi-lbl">Participações totais</div><div class="live-kpi-val" style="color:var(--green)">'+fN(totalP)+'</div></div>';
   h+='<div class="live-kpi"><div class="live-kpi-lbl">Alunos únicos (todas)</div><div class="live-kpi-val" style="color:var(--gold)">'+fN(totalUid.size)+'</div></div>';
-  h+='<div class="live-kpi"><div class="live-kpi-lbl">Identificados</div><div class="live-kpi-val" style="color:var(--teal)">'+fP(taxaIdentif)+'</div></div>';
+  h+='<div class="live-kpi"><div class="live-kpi-lbl">Identificados</div><div class="live-kpi-val" style="color:var(--teal)">'+taxaIdentif+'%</div></div>';
   h+='<div class="live-kpi"><div class="live-kpi-lbl">Duração média/aula</div><div class="live-kpi-val" style="color:var(--accent)">'+avgDuracaoAula+'<span style="font-size:14px;opacity:.7"> min</span></div></div>';
   h+='<div class="live-kpi"><div class="live-kpi-lbl">Tempo médio/aluno</div><div class="live-kpi-val" style="color:var(--gold)">'+avgTempoPorAluno+'<span style="font-size:14px;opacity:.7"> min</span></div></div>';
-  h+='<div class="live-kpi"><div class="live-kpi-lbl">% média de participação</div><div class="live-kpi-val" style="color:var(--green)">'+fP(pctMediaPartic)+'</div><div style="font-size:10.5px;color:var(--t3);margin-top:2px">'+avgParticPorAula+' de '+fN(baseTotal)+' alunos ativos</div></div>';
+  h+='<div class="live-kpi"><div class="live-kpi-lbl">% média de participação</div><div class="live-kpi-val" style="color:var(--green)">'+pctMediaPartic+'%</div><div style="font-size:10.5px;color:var(--t3);margin-top:2px">'+avgParticPorAula+' de '+fN(baseTotal)+' alunos ativos</div></div>';
   h+='</div>';
 
   // Agrupa por palestrante, ordenado pela live mais recente (desc)
@@ -1532,7 +1607,7 @@ function renderAoVivo(){
     ks.forEach(k=>{
       const s=lives[k];
       const nP=s.ids.size;
-      const avgDur=s.duracoes.length?rd(s.duracoes.reduce((a,b)=>a+b,0)/s.duracoes.length):0;
+      const avgDur=s.duracoes.length?Math.round(s.duracoes.reduce((a,b)=>a+b,0)/s.duracoes.length):0;
       const dt=s.data;
       const dtLabel=String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0');
       const diaSemana=dias[dt.getDay()];
@@ -1558,17 +1633,29 @@ function renderAoVivo(){
       let bd='';
       breakdownRows.forEach(row=>{
         const t=row.name,cnt=row.count;
-        const pct=nP>0?rd(cnt/nP*100):0;
+        const pct=nP>0?Math.round(cnt/nP*100):0;
         const corT=t==='Não identificado'?'var(--t3)':(row.isSmall?'var(--t2)':cor);
         const tagTxt=row.isSmall?'Outras':t;
+        // % da turma: quantos % da turma (alunos ativos) participaram desta live
+        let pctTurma=null;
+        if(!row.isSmall&&t!=='Não identificado'&&ativosPorTurma[t]){
+          pctTurma=Math.round(cnt/ativosPorTurma[t]*100);
+        }
         bd+='<div class="lp-row" title="'+(row.label||'').replace(/"/g,'&quot;')+'">';
         bd+='<span class="lp-tag" style="background:'+corT+'22;color:'+corT+';border:1px solid '+corT+'44">'+tagTxt+'</span>';
         bd+='<div class="lp-bar"><div class="lp-fill" style="width:'+pct+'%;background:'+corT+'"></div></div>';
         bd+='<span class="lp-cnt">'+cnt+'</span>';
-        bd+='<span class="lp-pct">'+fP(pct)+'</span>';
+        bd+='<span class="lp-pct">'+pct+'%</span>';
+        bd+='<span class="lp-pct-turma" title="% da turma '+t+' que participou (de '+(ativosPorTurma[t]||0)+' ativos)">'+(pctTurma===null?'—':pctTurma+'% turma')+'</span>';
         bd+='</div>';
         if(row.isSmall){
-          bd+='<div style="font-size:10.5px;color:var(--t3);margin:-2px 0 4px 90px;font-family:JetBrains Mono">'+row.label+'</div>';
+          // Recalcula label com % da turma de cada uma
+          const detalhe=pequenas.map(p=>{
+            const tot=ativosPorTurma[p.name]||0;
+            const pT=tot>0?Math.round(p.count/tot*100):0;
+            return p.name+' ('+p.count+(tot>0?' · '+pT+'% turma':'')+')';
+          }).join(', ');
+          bd+='<div style="font-size:10.5px;color:var(--t3);margin:-2px 0 4px 90px;font-family:JetBrains Mono;line-height:1.5">'+detalhe+'</div>';
         }
       });
       h+='<div class="live-card" style="border-left:4px solid '+cor+'">';
