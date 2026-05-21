@@ -11,6 +11,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root,[data-theme="dark"]{--bg:#0a0e1a;--card:rgba(15,23,42,.65);--border:rgba(255,255,255,.06);--bh:rgba(139,124,247,.2);--shadow:rgba(0,0,0,.3);--t1:#f1f5f9;--t2:#94a3b8;--t3:#475569;--accent:#8b7cf7;--a2:#a78bfa;--teal:#2dd4bf;--green:#34d399;--red:#f87171;--pink:#f472b6;--orange:#fb923c;--gold:#fbbf24;--sky:#38bdf8;--cyan:#22d3ee;--chart-bg:rgba(15,23,42,.4);--track-bg:rgba(255,255,255,.04);--track-fill:rgba(255,255,255,.06);--donut-hole:var(--bg);--login-bg:linear-gradient(135deg,#0a0e1a 0%,#1a1040 50%,#0a0e1a 100%)}
+.filter-date-row{display:flex;gap:10px}
+.filter-date{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--t1);font-family:'Outfit';font-size:14px;padding:12px 16px;border-radius:12px;outline:none}
+.filter-date:focus{border-color:var(--accent)}
+.filter-date::-webkit-calendar-picker-indicator{filter:invert(.6)}
+[data-theme="light"] .filter-date::-webkit-calendar-picker-indicator{filter:invert(.3)}
 [data-theme="light"]{--bg:#f8fafc;--card:rgba(255,255,255,.85);--border:rgba(0,0,0,.08);--bh:rgba(139,124,247,.25);--shadow:rgba(0,0,0,.08);--t1:#0f172a;--t2:#475569;--t3:#94a3b8;--chart-bg:rgba(241,245,249,.6);--track-bg:rgba(0,0,0,.04);--track-fill:rgba(0,0,0,.06);--donut-hole:#f8fafc;--login-bg:linear-gradient(135deg,#f8fafc 0%,#ede9fe 50%,#f8fafc 100%)}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;transition:all .3s}
@@ -633,7 +638,6 @@ function renderVisaoGeralCS(){
   let h='';
   h+='<div class="kpis">';
   h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total Alunos</div><div class="kpi-v">'+fN(total)+'</div><div class="kpi-s">filtro aplicado</div></div>';
-  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">Ativos</div><div class="kpi-v">'+fN(ativos)+'</div><div class="kpi-s">'+rd(pctAtivos)+'% da base</div></div>';
   h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Acessaram</div><div class="kpi-v">'+fN(acessou)+'</div><div class="kpi-s">'+rd(pctAcessou)+'% da base</div></div>';
   h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Nunca Acessaram</div><div class="kpi-v">'+fN(nuncaAcessou)+'</div><div class="kpi-s">'+rd(pctNunca)+'% da base</div></div>';
   h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--gold),var(--orange))"></div><div class="kpi-l">Progresso Médio</div><div class="kpi-v">'+rd(avgProg)+'%</div><div class="kpi-s">média do curso</div></div>';
@@ -669,20 +673,6 @@ function renderVisaoGeralCS(){
     h+='<div class="ft-row"><span class="ft-tag" style="background:'+c+';color:#fff;opacity:.9;min-width:180px;max-width:280px">'+k+'</span><span class="ft-qty">'+fN(v)+'</span><span class="ft-pct">'+rd(pc)+'%</span><div class="ft-track"><div class="ft-fill" style="width:'+pc.toFixed(1)+'%;background:'+c+'"></div></div></div>';
   });
   h+='</div></div>';
-
-  // ── Renovação (campo "Renovou?") ──
-  const renovEntries=Object.entries(renovouMap).filter(([k])=>k&&k!=='(sem info)').sort((a,b)=>b[1]-a[1]);
-  if(renovEntries.length){
-    h+='<div class="sec">🔄 Renovação</div><div class="card"><h3>Distribuição "Renovou?"</h3>';
-    const totalR=renovEntries.reduce((s,[,v])=>s+v,0);
-    renovEntries.forEach(([k,v],i)=>{
-      const pc=totalR>0?v/totalR*100:0;
-      const c=funilCores[i%funilCores.length];
-      h+='<div class="ft-row"><span class="ft-tag" style="background:'+c+';color:#fff;opacity:.9;min-width:160px">'+k+'</span><span class="ft-qty">'+fN(v)+'</span><span class="ft-pct">'+rd(pc)+'%</span><div class="ft-track"><div class="ft-fill" style="width:'+pc.toFixed(1)+'%;background:'+c+'"></div></div></div>';
-    });
-    h+='<div style="margin-top:10px;font-size:11px;color:var(--t3)">Total com info: '+fN(totalR)+' alunos</div>';
-    h+='</div>';
-  }
 
   // ── Container pra Pesquisa (renderizada logo abaixo) ──
   h+='<div class="sec">📋 Pesquisa de Aluno</div>';
