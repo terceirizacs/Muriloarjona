@@ -370,12 +370,57 @@ function doLogin(){
 }
 
 
-/* ===== DATA LOADING ===== */
+/* ===== DATA LOADING (com cache localStorage + retry) ===== */
+const CACHE_KEY='murilo_dash_v2';
+const CACHE_TTL_MS=10*60*1000; // 10 min
+function getCached(){
+  try{const raw=localStorage.getItem(CACHE_KEY);if(!raw)return null;
+    const {ts,data}=JSON.parse(raw);if(Date.now()-ts>CACHE_TTL_MS)return null;return {ts,data};
+  }catch(e){return null;}
+}
+function setCached(data){
+  try{localStorage.setItem(CACHE_KEY,JSON.stringify({ts:Date.now(),data}));}catch(e){}
+}
+async function fetchComRetry(url,tentativas=3){
+  let ultimoErro;
+  for(let i=0;i<tentativas;i++){
+    try{
+      const r=await fetch(url,{cache:'no-store'});
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      const txt=await r.text();
+      if(!txt.trim().startsWith('{')&&!txt.trim().startsWith('['))
+        throw new Error('Resposta não é JSON (token expirou). Tentativa '+(i+1));
+      return JSON.parse(txt);
+    }catch(e){ultimoErro=e;if(i<tentativas-1)await new Promise(r=>setTimeout(r,1500*(i+1)));}
+  }
+  throw ultimoErro;
+}
+
 async function loadData(){
   try{
-    const r=await fetch(API_URL);
-    const D=await r.json();
+    // 1) Carrega do cache imediatamente (instantâneo)
+    const cached=getCached();
+    if(cached){
+      aplicarDados(cached.data);
+      const min=Math.round((Date.now()-cached.ts)/60000);
+      // mantém loading invisível e mostra dados
+      document.getElementById('loadingOverlay').style.display='none';
+      document.getElementById('mainWrap').style.display='block';
+      console.log('💾 cache usado ('+min+'min)');
+    }
+    // 2) Busca dados frescos em background
+    const D=await fetchComRetry(API_URL);
     if(D.error) throw new Error(D.error);
+    setCached(D);
+    aplicarDados(D);
+  }catch(e){
+    if(getCached()){console.warn('Erro ao atualizar, mantendo cache:',e.message);return;}
+    document.getElementById('loadingOverlay').innerHTML='<div style="color:var(--red);padding:40px;text-align:center;font-size:18px;max-width:500px"><div style="font-size:48px;margin-bottom:16px">!</div>Erro ao carregar dados:<br><br><span style="font-family:JetBrains Mono;font-size:14px">'+e.message+'</span><br><br><button onclick="loadData()" style="padding:12px 24px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-size:14px;cursor:pointer;margin-top:8px">Tentar novamente</button></div>';
+  }
+}
+
+function aplicarDados(D){
+  try{
     FPRO=D.fpro||[];
     MCMV=D.mcmv||[];
     TRILHA_DATA=D.trilhas||[];
@@ -465,7 +510,7 @@ async function loadData(){
     document.getElementById('loadingOverlay').style.display='none';
     document.getElementById('mainWrap').style.display='block';
   }catch(e){
-    document.getElementById('loadingOverlay').innerHTML='<div style="color:var(--red);padding:40px;text-align:center;font-size:18px;max-width:500px"><div style="font-size:48px;margin-bottom:16px">!</div>Erro ao carregar dados:<br><br><span style="font-family:JetBrains Mono;font-size:14px">'+e.message+'</span><br><br><button onclick="loadData()" style="padding:12px 24px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-size:14px;cursor:pointer;margin-top:8px">Tentar novamente</button></div>';
+    console.error('Erro ao aplicar dados:',e);
   }
 }
 
