@@ -16,6 +16,8 @@
 .filter-date:focus{border-color:var(--accent)}
 .filter-date::-webkit-calendar-picker-indicator{filter:invert(.6)}
 [data-theme="light"] .filter-date::-webkit-calendar-picker-indicator{filter:invert(.3)}
+.kpis-vg{grid-template-columns:repeat(2,1fr)!important}
+@media(min-width:900px){.kpis-vg{grid-template-columns:repeat(4,1fr)!important}}
 [data-theme="light"]{--bg:#f8fafc;--card:rgba(255,255,255,.85);--border:rgba(0,0,0,.08);--bh:rgba(139,124,247,.25);--shadow:rgba(0,0,0,.08);--t1:#0f172a;--t2:#475569;--t3:#94a3b8;--chart-bg:rgba(241,245,249,.6);--track-bg:rgba(0,0,0,.04);--track-fill:rgba(0,0,0,.06);--donut-hole:#f8fafc;--login-bg:linear-gradient(135deg,#f8fafc 0%,#ede9fe 50%,#f8fafc 100%)}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;transition:all .3s}
@@ -636,7 +638,7 @@ function renderVisaoGeralCS(){
 
   // ── KPIs ──
   let h='';
-  h+='<div class="kpis">';
+  h+='<div class="kpis kpis-vg" id="kpisVG">';
   h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total Alunos</div><div class="kpi-v">'+fN(total)+'</div><div class="kpi-s">filtro aplicado</div></div>';
   h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Acessaram</div><div class="kpi-v">'+fN(acessou)+'</div><div class="kpi-s">'+rd(pctAcessou)+'% da base</div></div>';
   h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Nunca Acessaram</div><div class="kpi-v">'+fN(nuncaAcessou)+'</div><div class="kpi-s">'+rd(pctNunca)+'% da base</div></div>';
