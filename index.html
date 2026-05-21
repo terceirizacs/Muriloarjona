@@ -18,6 +18,40 @@
 [data-theme="light"] .filter-date::-webkit-calendar-picker-indicator{filter:invert(.3)}
 .kpis-vg{grid-template-columns:repeat(2,1fr)!important}
 @media(min-width:900px){.kpis-vg{grid-template-columns:repeat(4,1fr)!important}}
+/* Progresso (barras verticais) - labels e pcts */
+.prog-pct{position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:11px;font-family:'JetBrains Mono';font-weight:600;color:var(--t1);white-space:nowrap}
+.prog-labels{display:flex;gap:8px;padding:8px 16px 12px}
+.prog-lbl{flex:1;text-align:center;font-size:10px;color:var(--t3);font-family:'JetBrains Mono'}
+/* Horizontal bars (Aulas) */
+.hbar-lbl{font-size:13px;color:var(--t2);min-width:120px;text-align:right}
+.hbar-track{flex:1;height:36px;background:var(--track-bg);border-radius:12px;overflow:visible;position:relative}
+.hbar-fill{height:100%;border-radius:12px;display:flex;align-items:center;padding-left:14px;font-family:'JetBrains Mono';font-weight:600;font-size:13px;color:#fff;transition:width .6s;white-space:nowrap;overflow:visible}
+/* Análise de Acesso - Activ */
+.activ-grid{display:grid;grid-template-columns:1fr;gap:18px}
+@media(min-width:900px){.activ-grid{grid-template-columns:1fr 1fr}}
+.activ-hero{display:flex;flex-direction:column;gap:14px}
+.hero-stat{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:22px 24px;text-align:center;transition:all .3s}
+.hero-stat:hover{border-color:var(--bh)}
+.hero-big{font-family:'JetBrains Mono';font-size:36px;font-weight:800;line-height:1;margin-bottom:6px}
+.hero-lbl{font-size:12px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;font-weight:600}
+.alert-box{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:12px;font-size:13px;font-weight:500}
+.alert-box.ok{background:rgba(45,212,191,.08);border:1px solid rgba(45,212,191,.15);color:var(--teal)}
+.alert-box.warn{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.15);color:var(--gold)}
+.alert-box.danger{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.15);color:var(--red)}
+.activ-bars{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:24px;transition:all .3s}
+.activ-bars h3{font-size:15px;font-weight:700;margin-bottom:6px}
+.activ-bars .d{font-size:12px;color:var(--t3);margin-bottom:18px}
+.ab-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.ab-row:last-child{margin-bottom:0}
+.ab-lbl{font-family:'JetBrains Mono';font-size:13px;color:var(--t2);min-width:60px;font-weight:600}
+.ab-track{flex:1;height:28px;background:var(--track-bg);border-radius:8px;overflow:hidden;position:relative}
+.ab-fill{height:100%;border-radius:8px;display:flex;align-items:center;padding-left:10px;transition:width .6s}
+.ab-fill.accent{background:linear-gradient(90deg,var(--accent),rgba(139,124,247,.5))}
+.ab-fill.teal{background:linear-gradient(90deg,var(--teal),rgba(45,212,191,.4))}
+.ab-fill.dim{background:linear-gradient(90deg,rgba(148,148,184,.45),rgba(148,148,184,.2))}
+.ab-pct{font-family:'JetBrains Mono';font-size:11px;font-weight:700;color:#fff;white-space:nowrap}
+.ab-pct-out{font-family:'JetBrains Mono';font-size:12px;font-weight:600;color:var(--t2);margin-left:6px;flex-shrink:0}
+.ab-cnt{font-family:'JetBrains Mono';font-size:13px;font-weight:600;color:var(--t1);min-width:50px;text-align:right}
 [data-theme="light"]{--bg:#f8fafc;--card:rgba(255,255,255,.85);--border:rgba(0,0,0,.08);--bh:rgba(139,124,247,.25);--shadow:rgba(0,0,0,.08);--t1:#0f172a;--t2:#475569;--t3:#94a3b8;--chart-bg:rgba(241,245,249,.6);--track-bg:rgba(0,0,0,.04);--track-fill:rgba(0,0,0,.06);--donut-hole:#f8fafc;--login-bg:linear-gradient(135deg,#f8fafc 0%,#ede9fe 50%,#f8fafc 100%)}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;transition:all .3s}
@@ -703,15 +737,19 @@ function renderEngajamentoCS(){
   }
   const DIA=86400000;
   const HOJE=NOW||Date.now();
+
   // Agregações
+  const progOrder=['0%','1-25%','26-50%','51-75%','76-99%','100%'];
+  const progColors=['#475569','#f87171','#fb923c','#fbbf24','#38bdf8','#34d399'];
   const faixaProg={'0%':0,'1-25%':0,'26-50%':0,'51-75%':0,'76-99%':0,'100%':0};
   let acessou=0,nuncaAcessou=0;
+  const progVals=[],aulasVals=[],totalAulasVals=[];
   const diasAteAcesso=[];
   const diasInatividade=[];
-  const aulasPorProduto={};
   rows.forEach(r=>{
     const p=r[R_CS.PROG];
     if(typeof p==='number'){
+      progVals.push(p);
       if(p===0)faixaProg['0%']++;
       else if(p<=25)faixaProg['1-25%']++;
       else if(p<=50)faixaProg['26-50%']++;
@@ -720,33 +758,42 @@ function renderEngajamentoCS(){
       else faixaProg['100%']++;
     }
     if(r[R_CS.ACESSOU])acessou++; else nuncaAcessou++;
-    // Tempo até 1º acesso
+    if(typeof r[R_CS.AULAS]==='number')aulasVals.push(r[R_CS.AULAS]);
+    if(typeof r[R_CS.TOTAL_AULAS]==='number'&&r[R_CS.TOTAL_AULAS]>0)totalAulasVals.push(r[R_CS.TOTAL_AULAS]);
     if(r[R_CS.DT_COMPRA]&&r[R_CS.PRIM_ACESSO]){
       const d=Math.floor((r[R_CS.PRIM_ACESSO]-r[R_CS.DT_COMPRA])/DIA);
       if(d>=0&&d<=365)diasAteAcesso.push(d);
     }
-    // Dias sem acesso
     if(r[R_CS.ULT_ACESSO]){
       const d=Math.floor((HOJE-r[R_CS.ULT_ACESSO])/DIA);
       if(d>=0)diasInatividade.push(d);
     }
-    // Aulas por produto
-    const prod=r[R_CS.PRODUTO]||'—';
-    if(!aulasPorProduto[prod])aulasPorProduto[prod]={aulas:[],total:[]};
-    if(typeof r[R_CS.AULAS]==='number')aulasPorProduto[prod].aulas.push(r[R_CS.AULAS]);
-    if(typeof r[R_CS.TOTAL_AULAS]==='number'&&r[R_CS.TOTAL_AULAS]>0)aulasPorProduto[prod].total.push(r[R_CS.TOTAL_AULAS]);
   });
 
-  // Helpers
   const avg=arr=>arr.length?arr.reduce((s,v)=>s+v,0)/arr.length:0;
   const moda=arr=>{if(!arr.length)return 0;const m={};arr.forEach(v=>m[v]=(m[v]||0)+1);return +Object.entries(m).sort((a,b)=>b[1]-a[1])[0][0];};
+  const fmtP=n=>(rd(n)+'%').replace('.',',');
+
+  const avgProg=rd(avg(progVals));
+  const totalAulas=moda(totalAulasVals)||0;
+  const mediaAulas=rd(avg(aulasVals));
+  const pctAulas=totalAulas>0?mediaAulas/totalAulas*100:0;
+  const avgInat=rd(avg(diasInatividade));
   const pctAcessou=total>0?acessou/total*100:0;
   const pctNunca=total>0?nuncaAcessou/total*100:0;
-  const avgDiasAcesso=avg(diasAteAcesso);
+
+  // Acesso D+0/D+1/D+2
+  const totalAcesso=diasAteAcesso.length||1;
   const d0=diasAteAcesso.filter(d=>d===0).length;
   const d1=diasAteAcesso.filter(d=>d===1).length;
   const d2p=diasAteAcesso.filter(d=>d>=2).length;
-  const totalAcesso=diasAteAcesso.length||1;
+  const avgDiasAcesso=rd(avg(diasAteAcesso));
+  const pctD0=rd(d0/totalAcesso*100);
+  const pctD1=rd(d1/totalAcesso*100);
+  const pctD2=rd(d2p/totalAcesso*100);
+  const pctAteD1=rd((d0+d1)/totalAcesso*100);
+
+  // Inatividade
   const inat={'0-14d':0,'15-30d':0,'31-60d':0,'>60d':0};
   diasInatividade.forEach(d=>{
     if(d<=14)inat['0-14d']++;
@@ -754,67 +801,73 @@ function renderEngajamentoCS(){
     else if(d<=60)inat['31-60d']++;
     else inat['>60d']++;
   });
-  const totalInat=diasInatividade.length||1;
-
-  const progColors=['#475569','#f87171','#fb923c','#fbbf24','#38bdf8','#34d399'];
+  const pD60=total>0?inat['>60d']/total*100:0;
 
   let h='';
-  // KPIs principais
+  // KPIs (modelo Bruno: 4 cards)
   h+='<div class="kpis kpis-vg">';
-  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Acessaram</div><div class="kpi-v">'+rd(pctAcessou)+'%</div><div class="kpi-s">'+fN(acessou)+' de '+fN(total)+'</div></div>';
-  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">Tempo até 1º Acesso</div><div class="kpi-v">'+rd(avgDiasAcesso)+'<span style="font-size:18px;color:var(--t2)"> dias</span></div><div class="kpi-s">média ('+fN(totalAcesso)+' alunos)</div></div>';
-  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Acesso no mesmo dia</div><div class="kpi-v">'+rd(d0/totalAcesso*100)+'%</div><div class="kpi-s">'+fN(d0)+' alunos (D+0)</div></div>';
-  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Inativos há +60 dias</div><div class="kpi-v">'+rd(inat['>60d']/totalInat*100)+'%</div><div class="kpi-s">'+fN(inat['>60d'])+' alunos sem acesso</div></div>';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Média Progresso</div><div class="kpi-v">'+fmtP(avgProg)+'</div><div class="kpi-s">média do curso</div></div>';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Total Aulas (média)</div><div class="kpi-v">'+totalAulas+'</div><div class="kpi-s">disponíveis no curso</div></div>';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">Aulas Assistidas (média)</div><div class="kpi-v">'+mediaAulas.toFixed(1).replace('.',',')+'</div><div class="kpi-s">de '+totalAulas+' disponíveis</div></div>';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--gold))"></div><div class="kpi-l">Tempo Médio s/ Acesso</div><div class="kpi-v">'+avgInat+'<span style="font-size:18px;color:var(--t2)"> dias</span></div><div class="kpi-s">entre quem acessou</div></div>';
   h+='</div>';
 
-  // Progresso & Aulas
-  h+='<div class="sec">📈 Progresso & Aulas</div>';
-  h+='<div class="card"><h3>Faixa de Progresso</h3><div class="d">Distribuição por faixa de conclusão do curso</div>';
-  Object.entries(faixaProg).forEach(([k,v],i)=>{
-    const pc=total>0?v/total*100:0;
-    h+='<div class="ft-row"><span class="ft-tag" style="background:'+progColors[i]+';color:#fff;opacity:.9;min-width:90px">'+k+'</span><span class="ft-qty">'+fN(v)+'</span><span class="ft-pct">'+rd(pc)+'%</span><div class="ft-track"><div class="ft-fill" style="width:'+pc.toFixed(1)+'%;background:'+progColors[i]+'"></div></div></div>';
+  // Progresso & Aulas (barras verticais + horizontais — modelo Bruno)
+  h+='<div class="sec">📈 Progresso & Aulas</div><div class="g2">';
+  // Faixa de progresso (barras verticais)
+  const pd=progOrder.map(f=>faixaProg[f]||0);
+  const mxP=Math.max(...pd,1);
+  h+='<div class="card"><h3>Faixa de Progresso</h3><div class="d">Distribuição por faixa de conclusão</div><div class="prog-area"><div class="prog-bars">';
+  progOrder.forEach((f,i)=>{
+    const hh=Math.round(pd[i]/mxP*90);
+    const pc=total>0?pd[i]/total*100:0;
+    h+='<div class="prog-bar" style="height:'+hh+'%;background:'+progColors[i]+'"><span class="prog-pct">'+pc.toFixed(1)+'%</span></div>';
   });
+  h+='</div><div class="prog-labels">';
+  progOrder.forEach(f=>{h+='<div class="prog-lbl">'+f+'</div>';});
+  h+='</div></div></div>';
+
+  // Aulas Total vs Média (horizontais)
+  h+='<div class="card"><h3>Total de Aulas vs Média Assistida</h3>';
+  h+='<div class="d">'+totalAulas+' aulas · média '+mediaAulas.toFixed(1).replace('.',',')+' assistidas ('+rd(pctAulas)+'%)</div>';
+  h+='<div class="hbar-area" style="height:auto;gap:24px">';
+  h+='<div class="hbar-row"><span class="hbar-lbl">Total de Aulas</span><div class="hbar-track"><div class="hbar-fill" style="width:100%;background:linear-gradient(90deg,var(--sky),var(--cyan))">'+totalAulas+' aulas</div></div></div>';
+  h+='<div class="hbar-row"><span class="hbar-lbl">Média Assistida</span><div class="hbar-track"><div class="hbar-fill" style="width:'+Math.max(pctAulas,2).toFixed(0)+'%;background:var(--teal)">'+(pctAulas>15?mediaAulas.toFixed(1).replace('.',',')+' aulas ('+rd(pctAulas)+'%)':'')+'</div></div>'+(pctAulas<=15?'<span style="font-family:JetBrains Mono;font-size:13px;font-weight:600;color:var(--t2);margin-left:8px">'+mediaAulas.toFixed(1).replace('.',',')+' aulas ('+rd(pctAulas)+'%)</span>':'')+'</div>';
+  h+='</div></div>';
   h+='</div>';
 
-  // Aulas por produto
-  h+='<div class="card"><h3>Aulas Assistidas vs Total (por produto)</h3><div class="d">Média de aulas completas</div>';
-  Object.entries(aulasPorProduto).forEach(([prod,d])=>{
-    if(!d.aulas.length)return;
-    const tA=moda(d.total)||0;
-    const mA=rd(avg(d.aulas));
-    const pA=tA>0?mA/tA*100:0;
-    h+='<div style="font-size:13px;color:var(--accent);font-weight:600;margin-top:16px;margin-bottom:6px">'+prod+'</div>';
-    h+='<div class="ft-row"><span class="ft-tag" style="background:var(--sky);color:#fff;opacity:.9;min-width:120px">Total</span><span class="ft-qty">'+tA+'</span><div class="ft-track"><div class="ft-fill" style="width:100%;background:var(--sky)">'+tA+' aulas</div></div></div>';
-    h+='<div class="ft-row"><span class="ft-tag" style="background:var(--teal);color:#fff;opacity:.9;min-width:120px">Média assistida</span><span class="ft-qty">'+mA.toFixed(1)+'</span><span class="ft-pct">'+rd(pA)+'%</span><div class="ft-track"><div class="ft-fill" style="width:'+Math.max(pA,2).toFixed(0)+'%;background:var(--teal)">'+mA.toFixed(1)+' aulas</div></div></div>';
-  });
-  h+='</div>';
-
-  // Análise de Acesso (D+0/D+1/D+2)
+  // Análise de Acesso (Hero + Distribuição D+0/D+1/D+2)
   h+='<div class="sec">👁️ Análise de Acesso</div>';
-  h+='<div class="card"><h3>Distribuição por dia de ativação</h3><div class="d">Tempo entre compra e 1º acesso · '+fN(totalAcesso)+' alunos com dados</div>';
-  [['D+0',d0,'var(--green)'],['D+1',d1,'var(--teal)'],['D+2 ou mais',d2p,'var(--orange)']].forEach(([lbl,cnt,cor])=>{
-    const pc=totalAcesso>0?cnt/totalAcesso*100:0;
-    h+='<div class="ft-row"><span class="ft-tag" style="background:'+cor+';color:#fff;opacity:.9;min-width:100px">'+lbl+'</span><span class="ft-qty">'+fN(cnt)+'</span><span class="ft-pct">'+rd(pc)+'%</span><div class="ft-track"><div class="ft-fill" style="width:'+pc.toFixed(1)+'%;background:'+cor+'"></div></div></div>';
-  });
+  h+='<div class="activ-grid"><div class="activ-hero">';
+  h+='<div class="hero-stat"><div class="hero-big" style="color:var(--accent)">'+avgDiasAcesso.toString().replace('.',',')+'<span style="font-size:20px;font-weight:400;color:var(--t2)"> dias</span></div><div class="hero-lbl">Tempo médio até o 1º acesso</div></div>';
+  h+='<div class="hero-stat"><div class="hero-big" style="color:var(--teal)">'+pctD0.toString().replace('.',',')+'<span style="font-size:20px;font-weight:400;color:var(--t2)">%</span></div><div class="hero-lbl">Acessam no mesmo dia (D+0)</div></div>';
+  h+='<div class="alert-box ok">✓ '+pctAteD1.toString().replace('.',',')+'% dos alunos que vão acessar o fazem até o D+1</div>';
   h+='</div>';
+  h+='<div class="activ-bars"><h3>Distribuição por dia de ativação</h3><div class="d">'+fN(totalAcesso)+' alunos com dados</div>';
+  [['D+0',pctD0,d0,'accent'],['D+1',pctD1,d1,'teal'],['D+2+',pctD2,d2p,'dim']].forEach(([lbl,pc,cnt,cls])=>{
+    h+='<div class="ab-row"><span class="ab-lbl">'+lbl+'</span><div class="ab-track"><div class="ab-fill '+cls+'" style="width:'+Math.max(pc,1.5)+'%">'+(pc>15?'<span class="ab-pct">'+pc.toString().replace('.',',')+'%</span>':'')+'</div></div>'+(pc<=15?'<span class="ab-pct-out">'+pc.toString().replace('.',',')+'%</span>':'')+'<span class="ab-cnt">'+fN(cnt)+'</span></div>';
+  });
+  h+='</div></div>';
 
   // Inatividade
   h+='<div class="sec">⏱️ Dias sem Acesso</div>';
-  h+='<div class="card"><h3>Distribuição de inatividade</h3><div class="d">'+fN(totalInat)+' alunos com algum acesso</div>';
+  h+='<div class="card"><h3>Distribuição de inatividade</h3><div class="d">'+fN(diasInatividade.length)+' alunos com algum acesso</div>';
   const inatCores=['var(--green)','var(--gold)','var(--orange)','var(--red)'];
+  const totalInat=diasInatividade.length||1;
   Object.entries(inat).forEach(([k,v],i)=>{
     const pc=totalInat>0?v/totalInat*100:0;
-    h+='<div class="ft-row"><span class="ft-tag" style="background:'+inatCores[i]+';color:#fff;opacity:.9;min-width:90px">'+k+'</span><span class="ft-qty">'+fN(v)+'</span><span class="ft-pct">'+rd(pc)+'%</span><div class="ft-track"><div class="ft-fill" style="width:'+pc.toFixed(1)+'%;background:'+inatCores[i]+'"></div></div></div>';
+    h+='<div class="hbar-row"><span class="hbar-lbl">'+k+'</span><div class="hbar-track"><div class="hbar-fill" style="width:'+Math.max(pc,2).toFixed(0)+'%;background:'+inatCores[i]+'">'+(pc>10?fN(v)+' ('+rd(pc)+'%)':'')+'</div></div>'+(pc<=10?'<span style="font-family:JetBrains Mono;font-size:13px;font-weight:600;color:var(--t2);margin-left:8px">'+fN(v)+' ('+rd(pc)+'%)</span>':'')+'</div>';
   });
   h+='</div>';
 
   // Insights
   h+='<div class="sec">💡 Insights — Engajamento</div><div class="ins-g">';
-  if(inat['>60d']/totalInat>0.4)h+='<div class="ins w"><div class="ins-t">⚠️ '+rd(inat['>60d']/totalInat*100)+'% inativos há +60 dias</div><div class="ins-p">'+fN(inat['>60d'])+' alunos sem acesso recente.</div></div>';
-  if(pctNunca>20)h+='<div class="ins w"><div class="ins-t">🚨 '+rd(pctNunca)+'% nunca acessaram</div><div class="ins-p">'+fN(nuncaAcessou)+' alunos compraram e não entraram no curso.</div></div>';
-  if(d0/totalAcesso>0.5)h+='<div class="ins ok"><div class="ins-t">✅ '+rd(d0/totalAcesso*100)+'% acessam no mesmo dia</div><div class="ins-p">Ótimo engajamento inicial.</div></div>';
-  const recompra=faixaProg['100%']+faixaProg['76-99%'];
-  if(recompra>0)h+='<div class="ins ok"><div class="ins-t">🎯 '+fN(recompra)+' alunos com progresso 76%+</div><div class="ins-p">'+rd(recompra/total*100)+'% chegaram perto ou completaram o curso.</div></div>';
+  if(pD60>40)h+='<div class="ins w"><div class="ins-t">⚠️ '+fmtP(pD60)+' inativos há +60 dias</div><div class="ins-p">'+fN(inat['>60d'])+' alunos sem acesso recente.</div></div>';
+  if(pctNunca>20)h+='<div class="ins w"><div class="ins-t">🚨 '+fmtP(pctNunca)+' nunca acessaram</div><div class="ins-p">'+fN(nuncaAcessou)+' alunos compraram e não entraram no curso.</div></div>';
+  if(pctD0>50)h+='<div class="ins ok"><div class="ins-t">✅ '+fmtP(pctD0)+' acessam no mesmo dia</div><div class="ins-p">Ótimo engajamento inicial.</div></div>';
+  const completaram=faixaProg['100%']+faixaProg['76-99%'];
+  if(completaram>0)h+='<div class="ins ok"><div class="ins-t">🎯 '+fN(completaram)+' alunos com progresso 76%+</div><div class="ins-p">'+fmtP(completaram/total*100)+' chegaram perto ou completaram o curso.</div></div>';
+  if(avgProg<10)h+='<div class="ins w"><div class="ins-t">🚨 Progresso baixo: '+fmtP(avgProg)+'</div><div class="ins-p">Ações de engajamento urgentes necessárias.</div></div>';
   h+='</div>';
 
   cont.innerHTML=h;
