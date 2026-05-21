@@ -528,6 +528,126 @@ function statusClass(r){
 
 /* ===== THEME / TABS ===== */
 function toggleTheme(){const h=document.documentElement,d=h.getAttribute('data-theme')==='dark';h.setAttribute('data-theme',d?'light':'dark');document.getElementById('btnDark').classList.toggle('active',!d);document.getElementById('btnLight').classList.toggle('active',d);}
+// ============================================================
+// VISÃO GERAL CS — Desafio 30 dias (modelo Bruno) + Pesquisa
+// ============================================================
+function getFilteredCS(){
+  if(!CS_ROWS||!CS_ROWS.length)return [];
+  const ft=getMS('fTurmaCS'),fp=getMS('fProdutoCS'),ff=getMS('fFunilCS');
+  const de=document.getElementById('fDeCS')&&document.getElementById('fDeCS').value?new Date(document.getElementById('fDeCS').value).getTime():null;
+  const ate=document.getElementById('fAteCS')&&document.getElementById('fAteCS').value?new Date(document.getElementById('fAteCS').value+'T23:59:59').getTime():null;
+  return CS_ROWS.filter(r=>{
+    if(ft.length&&!ft.includes(r[R_CS.TURMA]))return false;
+    if(fp.length&&!fp.includes(r[R_CS.PRODUTO]))return false;
+    if(ff.length&&!ff.includes(r[R_CS.FUNIL]))return false;
+    if(de||ate){
+      if(!r[R_CS.DT_COMPRA])return false;
+      if(de&&r[R_CS.DT_COMPRA]<de)return false;
+      if(ate&&r[R_CS.DT_COMPRA]>ate)return false;
+    }
+    return true;
+  });
+}
+
+function renderVisaoGeralCS(){
+  const cont=document.getElementById('cCS');
+  if(!cont)return;
+  if(!CS_ROWS||!CS_ROWS.length){
+    cont.innerHTML='<div style="text-align:center;padding:60px;color:var(--t3)">Sem dados da planilha CS. Verifique se o GAS foi redeployado e retorna o campo <code>cs</code>.</div>';
+    return;
+  }
+  const rows=getFilteredCS();
+  const total=rows.length;
+  if(!total){
+    cont.innerHTML='<div style="text-align:center;padding:60px;color:var(--t3)">Nenhum aluno para os filtros atuais. Ajuste os filtros e tente de novo.</div>';
+    return;
+  }
+
+  // ── Agregações ──
+  let ativos=0,bloqueados=0,acessou=0,nuncaAcessou=0;
+  const somaProg=[],somaAulas=[];
+  const funilMap={},produtoMap={},turmaMap={},tipoMap={},renovouMap={};
+  rows.forEach(r=>{
+    const sc=r[R_CS.STATUS_CLUB];
+    if(sc==='ACTIVE')ativos++; else if(sc==='BLOCKED'||sc==='BLOCKED_BY_OWNER')bloqueados++;
+    if(r[R_CS.ACESSOU])acessou++; else nuncaAcessou++;
+    if(typeof r[R_CS.PROG]==='number')somaProg.push(r[R_CS.PROG]);
+    if(typeof r[R_CS.AULAS]==='number')somaAulas.push(r[R_CS.AULAS]);
+    const f=r[R_CS.FUNIL]||'—';funilMap[f]=(funilMap[f]||0)+1;
+    const p=r[R_CS.PRODUTO]||'—';produtoMap[p]=(produtoMap[p]||0)+1;
+    const t=r[R_CS.TURMA]||'(sem turma)';turmaMap[t]=(turmaMap[t]||0)+1;
+    const tp=r[R_CS.TIPO_ALUNO]||'(sem tipo)';tipoMap[tp]=(tipoMap[tp]||0)+1;
+    const rv=r[R_CS.RENOVOU]||'(sem info)';renovouMap[rv]=(renovouMap[rv]||0)+1;
+  });
+  const avgProg=somaProg.length?somaProg.reduce((a,b)=>a+b,0)/somaProg.length:0;
+  const pctAtivos=total>0?ativos/total*100:0;
+  const pctAcessou=total>0?acessou/total*100:0;
+  const pctNunca=total>0?nuncaAcessou/total*100:0;
+
+  // ── KPIs ──
+  let h='';
+  h+='<div class="kpis">';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total Alunos</div><div class="kpi-v">'+fN(total)+'</div><div class="kpi-s">filtro aplicado</div></div>';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">Ativos</div><div class="kpi-v">'+fN(ativos)+'</div><div class="kpi-s">'+rd(pctAtivos)+'% da base</div></div>';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Acessaram</div><div class="kpi-v">'+fN(acessou)+'</div><div class="kpi-s">'+rd(pctAcessou)+'% da base</div></div>';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Nunca Acessaram</div><div class="kpi-v">'+fN(nuncaAcessou)+'</div><div class="kpi-s">'+rd(pctNunca)+'% da base</div></div>';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--gold),var(--orange))"></div><div class="kpi-l">Progresso Médio</div><div class="kpi-v">'+rd(avgProg)+'%</div><div class="kpi-s">média do curso</div></div>';
+  h+='</div>';
+
+  // ── Funil (Jornada do Aluno) ──
+  h+='<div class="sec">📊 Jornada do Aluno</div>';
+  const funilEntries=Object.entries(funilMap).sort((a,b)=>b[1]-a[1]);
+  const funilCores=['var(--accent)','var(--a2)','var(--teal)','var(--green)','var(--orange)','var(--gold)','var(--sky)','var(--cyan)','var(--pink)','var(--red)'];
+  h+='<div class="card"><h3>Distribuição por Etapa</h3><div class="d">Funil de engajamento</div>';
+  funilEntries.forEach(([k,v],i)=>{
+    const pc=total>0?v/total*100:0;
+    const c=funilCores[i%funilCores.length];
+    h+='<div class="ft-row"><span class="ft-tag" style="background:'+c+';color:#fff;opacity:.9;min-width:200px">'+k+'</span><span class="ft-qty">'+fN(v)+'</span><span class="ft-pct">'+rd(pc)+'%</span><div class="ft-track"><div class="ft-fill" style="width:'+pc.toFixed(1)+'%;background:'+c+'"></div></div></div>';
+  });
+  h+='</div>';
+
+  // ── Perfil da Base (g2: produto + turma) ──
+  h+='<div class="sec">👥 Perfil da Base</div><div class="g2">';
+  const prodEntries=Object.entries(produtoMap).sort((a,b)=>b[1]-a[1]);
+  h+='<div class="card"><h3>Distribuição por Produto</h3><div class="d">'+prodEntries.length+' produtos</div>';
+  prodEntries.forEach(([k,v],i)=>{
+    const pc=total>0?v/total*100:0;
+    const c=funilCores[i%funilCores.length];
+    h+='<div class="ft-row"><span class="ft-tag" style="background:'+c+';color:#fff;opacity:.9;min-width:180px;max-width:280px">'+k+'</span><span class="ft-qty">'+fN(v)+'</span><span class="ft-pct">'+rd(pc)+'%</span><div class="ft-track"><div class="ft-fill" style="width:'+pc.toFixed(1)+'%;background:'+c+'"></div></div></div>';
+  });
+  h+='</div>';
+  const turmaEntries=Object.entries(turmaMap).sort((a,b)=>b[1]-a[1]).slice(0,15);
+  h+='<div class="card"><h3>Top Turmas</h3><div class="d">Top 15 (de '+Object.keys(turmaMap).length+')</div>';
+  turmaEntries.forEach(([k,v],i)=>{
+    const pc=total>0?v/total*100:0;
+    const c=funilCores[i%funilCores.length];
+    h+='<div class="ft-row"><span class="ft-tag" style="background:'+c+';color:#fff;opacity:.9;min-width:180px;max-width:280px">'+k+'</span><span class="ft-qty">'+fN(v)+'</span><span class="ft-pct">'+rd(pc)+'%</span><div class="ft-track"><div class="ft-fill" style="width:'+pc.toFixed(1)+'%;background:'+c+'"></div></div></div>';
+  });
+  h+='</div></div>';
+
+  // ── Renovação (campo "Renovou?") ──
+  const renovEntries=Object.entries(renovouMap).filter(([k])=>k&&k!=='(sem info)').sort((a,b)=>b[1]-a[1]);
+  if(renovEntries.length){
+    h+='<div class="sec">🔄 Renovação</div><div class="card"><h3>Distribuição "Renovou?"</h3>';
+    const totalR=renovEntries.reduce((s,[,v])=>s+v,0);
+    renovEntries.forEach(([k,v],i)=>{
+      const pc=totalR>0?v/totalR*100:0;
+      const c=funilCores[i%funilCores.length];
+      h+='<div class="ft-row"><span class="ft-tag" style="background:'+c+';color:#fff;opacity:.9;min-width:160px">'+k+'</span><span class="ft-qty">'+fN(v)+'</span><span class="ft-pct">'+rd(pc)+'%</span><div class="ft-track"><div class="ft-fill" style="width:'+pc.toFixed(1)+'%;background:'+c+'"></div></div></div>';
+    });
+    h+='<div style="margin-top:10px;font-size:11px;color:var(--t3)">Total com info: '+fN(totalR)+' alunos</div>';
+    h+='</div>';
+  }
+
+  // ── Container pra Pesquisa (renderizada logo abaixo) ──
+  h+='<div class="sec">📋 Pesquisa de Aluno</div>';
+  h+='<div id="cPesquisaInVG"></div>';
+
+  cont.innerHTML=h;
+  // Renderiza Pesquisa no container interno
+  if(typeof renderPesquisa==='function')renderPesquisa('cPesquisaInVG');
+}
+
 function switchTab(t,b){
   document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active'));
@@ -550,7 +670,21 @@ function resetFiltersCS(){
   applyFiltersCS();
 }
 function applyFiltersCS(){
-  // Será preenchido nas Fases 3/4 — por enquanto re-renderiza Visão Geral e Engajamento
+  // Re-renderiza Visão Geral e Engajamento com filtros novos aplicados
+  // Atualiza tags
+  const tagsEl=document.getElementById('tagsAreaCS');
+  if(tagsEl){
+    const tags=[];
+    getMS('fTurmaCS').forEach(v=>tags.push(v));
+    getMS('fProdutoCS').forEach(v=>tags.push(v.length>26?v.slice(0,24)+'...':v));
+    getMS('fFunilCS').forEach(v=>tags.push(v));
+    const de=document.getElementById('fDeCS').value;
+    const ate=document.getElementById('fAteCS').value;
+    if(de)tags.push('De: '+de);
+    if(ate)tags.push('Até: '+ate);
+    if(!tags.length)tagsEl.innerHTML='<div class="filter-tag neutral">Nenhum filtro ativo</div>';
+    else tagsEl.innerHTML=tags.map(t=>'<div class="filter-tag">'+t+'</div>').join('');
+  }
   if(typeof renderVisaoGeralCS==='function')renderVisaoGeralCS();
   if(typeof renderEngajamentoCS==='function')renderEngajamentoCS();
 }
@@ -658,6 +792,7 @@ function renderAll(filtered){
   renderRenov(rows);
   renderPesquisa();
   renderAoVivo();
+  if(typeof renderVisaoGeralCS==='function')renderVisaoGeralCS();
 }
 
 /* ===== VISAO GERAL ===== */
@@ -1276,16 +1411,16 @@ function pesqHBars(data,color){
   return h;
 }
 
-function renderPesquisa(){
-  var cont=document.getElementById('cPesquisa');
+function renderPesquisa(targetId){
+  var cont=document.getElementById(targetId||'cPesquisa');
   if(!cont)return;
 
   // Cross-reference pesquisa emails with FPRO to get turma
   var emailTurma={};
   FPRO.forEach(function(f){if(f.email)emailTurma[f.email]=f.turma;if(f.email2)emailTurma[f.email2]=f.turma;});
 
-  // Apply turma filter
-  var selTurma=getMS('fTurma');
+  // Apply turma filter (usa fTurmaCS quando renderizado dentro da Visão Geral)
+  var selTurma=getMS(document.getElementById('fTurmaCS')?'fTurmaCS':'fTurma');
   var data=PESQ;
   if(selTurma.length){
     data=PESQ.filter(function(p){
