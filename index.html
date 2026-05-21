@@ -288,16 +288,18 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
   </div>
 
   <nav>
-    <button class="tab-btn active" onclick="switchTab('geral',this)">Visao Geral</button>
-    <button class="tab-btn" onclick="switchTab('trilhas',this)">Trilhas</button>
+    <button class="tab-btn active" onclick="switchTab('cs',this)">📊 Visão Geral</button>
+    <button class="tab-btn" onclick="switchTab('engajamento',this)">🎯 Engajamento</button>
     <button class="tab-btn" onclick="switchTab('financeiro',this)">Financeiro</button>
     <button class="tab-btn" onclick="switchTab('renovacao',this)">Renovação</button>
-    <button class="tab-btn" onclick="switchTab('pesquisa',this)">📋 Pesquisa</button>
     <button class="tab-btn" onclick="switchTab('aovivo',this)">📹 Ao Vivo</button>
+    <button class="tab-btn" onclick="switchTab('geral',this)">📚 Curso Completo</button>
+    <button class="tab-btn" onclick="switchTab('trilhas',this)">Trilhas</button>
     <button class="tab-btn" onclick="switchTab('alunos',this)">Alunos</button>
   </nav>
 
-  <div class="filter-bar">
+  <!-- Barra de filtros: Curso Completo + Trilhas (turma/produto trilha/status) -->
+  <div class="filter-bar" id="filterBarLegado" style="display:none">
     <div class="filter-header">
       <span class="filter-title">Filtros</span>
       <div class="filter-actions">
@@ -313,11 +315,30 @@ nav{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;overflow-x:auto;-webk
     <div class="active-filters" id="tagsArea"><div class="filter-tag neutral">Nenhum filtro ativo</div></div>
   </div>
 
-  <div class="tab-content active" id="tab-geral"><div id="cGeral"></div></div>
+  <!-- Barra de filtros: Visão Geral + Engajamento (turma/produto/funil/data compra) -->
+  <div class="filter-bar" id="filterBarCS">
+    <div class="filter-header">
+      <span class="filter-title">Filtros</span>
+      <div class="filter-actions">
+        <button class="filter-clear" onclick="resetFiltersCS()">Limpar</button>
+        <button class="filter-apply" onclick="applyFiltersCS()">Aplicar</button>
+      </div>
+    </div>
+    <div class="filter-grid">
+      <div class="filter-group"><label class="filter-label">Turma</label><div class="ms-wrap" id="fTurmaCS"></div></div>
+      <div class="filter-group"><label class="filter-label">Produto</label><div class="ms-wrap" id="fProdutoCS"></div></div>
+      <div class="filter-group"><label class="filter-label">Funil</label><div class="ms-wrap" id="fFunilCS"></div></div>
+      <div class="filter-group"><label class="filter-label">Data Compra</label><div class="filter-date-row"><input type="date" class="filter-date" id="fDeCS"><input type="date" class="filter-date" id="fAteCS"></div></div>
+    </div>
+    <div class="active-filters" id="tagsAreaCS"><div class="filter-tag neutral">Nenhum filtro ativo</div></div>
+  </div>
+
+  <div class="tab-content active" id="tab-cs"><div id="cCS" style="text-align:center;padding:60px;color:var(--t3)">Em construção (Fase 3)</div></div>
+  <div class="tab-content" id="tab-engajamento"><div id="cEngaj" style="text-align:center;padding:60px;color:var(--t3)">Em construção (Fase 4)</div></div>
+  <div class="tab-content" id="tab-geral"><div id="cGeral"></div></div>
   <div class="tab-content" id="tab-trilhas"><div id="cTrilhas"></div></div>
   <div class="tab-content" id="tab-financeiro"><div id="cFinanceiro"></div></div>
   <div class="tab-content" id="tab-renovacao"><div id="cRenov"></div></div>
-
   <div class="tab-content" id="tab-pesquisa"><div id="cPesquisa"></div></div>
   <div class="tab-content" id="tab-aovivo"><div id="cAoVivo"></div></div>
   <div class="tab-content" id="tab-alunos"><div id="cAlunos"></div></div>
@@ -330,6 +351,9 @@ const SENHA='Muriloarjona123';
 const API_URL='https://script.google.com/macros/s/AKfycbx1ZsRlH2hvBJtXtZLXfUkw-8190CxUC292xC5U93q45rwhFgOUH_-Y-W3APi8uttZ3kw/exec';
 
 let FPRO=[], MCMV=[], TRILHA_DATA=[], TRILHAS=[], ROWS=[], PESQ=[], AV=[], AV_AULAS=[], NOW=Date.now();
+let CS_ROWS=[], CS_PRODUTOS=[], CS_TURMAS=[], CS_FUNIS=[];
+// Índices do array compacto cs (alinhar com lerPlanilhaCS no GAS)
+const R_CS={PRODUTO:0,STATUS_COMPRA:1,TIPO_ALUNO:2,STATUS_CLUB:3,FUNIL:4,PROG:5,AULAS:6,TOTAL_AULAS:7,ACESSOU:8,QTD_ACESSOS:9,DT_COMPRA:10,ULT_ACESSO:11,VALOR:12,EMAIL:13,DT_APROV:14,PRIM_ACESSO:15,NOME:16,TURMA:17,RENOVOU:18,SUGESTAO:19,CS_REN:20,CS_NEG:21};
 
 /* ===== LOGIN ===== */
 function doLogin(){
@@ -360,6 +384,19 @@ async function loadData(){
     AV=D.aoVivo||[];
     AV_AULAS=D.aoVivoAulas||[];
     NOW=D.todayMs||Date.now();
+    // Planilha CS (Desafio 30 dias + Engajamento)
+    if(D.cs){
+      CS_ROWS=D.cs.rows||[];
+      CS_PRODUTOS=D.cs.produtos||[];
+      CS_TURMAS=D.cs.turmas||[];
+      CS_FUNIS=D.cs.funis||[];
+    }
+    // Constrói filtros novos (CS)
+    if(typeof buildMS==='function'){
+      buildMS('fTurmaCS',CS_TURMAS);
+      buildMS('fProdutoCS',CS_PRODUTOS);
+      buildMS('fFunilCS',CS_FUNIS);
+    }
 
     // Build merged ROWS: FPRO + trilha data by email
     const trilhaMap=new Map();
@@ -491,7 +528,32 @@ function statusClass(r){
 
 /* ===== THEME / TABS ===== */
 function toggleTheme(){const h=document.documentElement,d=h.getAttribute('data-theme')==='dark';h.setAttribute('data-theme',d?'light':'dark');document.getElementById('btnDark').classList.toggle('active',!d);document.getElementById('btnLight').classList.toggle('active',d);}
-function switchTab(t,b){document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active'));document.getElementById('tab-'+t).classList.add('active');b.classList.add('active');}
+function switchTab(t,b){
+  document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+  b.classList.add('active');
+  // Mostra a barra de filtros correta
+  const usaFiltroCS = (t==='cs' || t==='engajamento');
+  const usaFiltroLegado = (t==='geral' || t==='trilhas');
+  const barCS = document.getElementById('filterBarCS');
+  const barLeg = document.getElementById('filterBarLegado');
+  if(barCS) barCS.style.display = usaFiltroCS ? '' : 'none';
+  if(barLeg) barLeg.style.display = usaFiltroLegado ? '' : 'none';
+}
+// Placeholders pra Fase 3/4
+function resetFiltersCS(){
+  document.querySelectorAll('#fTurmaCS .ms-option.selected, #fProdutoCS .ms-option.selected, #fFunilCS .ms-option.selected').forEach(o=>o.classList.remove('selected'));
+  document.querySelectorAll('#fTurmaCS .ms-trigger, #fProdutoCS .ms-trigger, #fFunilCS .ms-trigger').forEach(t=>t.innerHTML='Todos');
+  const de=document.getElementById('fDeCS'),at=document.getElementById('fAteCS');
+  if(de)de.value='';if(at)at.value='';
+  applyFiltersCS();
+}
+function applyFiltersCS(){
+  // Será preenchido nas Fases 3/4 — por enquanto re-renderiza Visão Geral e Engajamento
+  if(typeof renderVisaoGeralCS==='function')renderVisaoGeralCS();
+  if(typeof renderEngajamentoCS==='function')renderEngajamentoCS();
+}
 
 /* ===== MULTI-SELECT ===== */
 function buildMS(id,vals){
