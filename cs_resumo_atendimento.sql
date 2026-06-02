@@ -1,17 +1,24 @@
 -- ============================================================
--- Função: public.cs_resumo_atendimento  (v2)
--- Mudanças v2:
---   • DISPARO = cada nota privada do bot (1 msg = 1 disparo), não mais 1 conv = 1 disparo
---   • Buckets independentes (overlap permitido via LATERAL) — mes_fechado deixa de perder dias
---   • Remove cs_voltou e taxa_cs_resp
---   • Adiciona alunos_atendidos (contatos únicos) e disparos_por_aluno (média)
---   • Adiciona pace_mensal e pct_meta_proporcional (on track) em mes_atual e alltime
+-- Função: public.cs_resumo_atendimento  (v4)
+-- Mudanças v4:
+--   • Novas categorias de assunto: 'engajamento_curso' e 'comunidade'
+--   • Hierarquia: risco → tecnico → dificuldade → prova → engajamento_curso
+--     → compromisso → comunidade → afetivo → outros
+-- v3:
+--   • RESPOSTAS = conversas únicas com msg do aluno no período
+--   • Parâmetros p_custom_start, p_custom_end (opcional, retorna bucket 'custom')
 -- ============================================================
+
+-- Remove versões antigas
+DROP FUNCTION IF EXISTS public.cs_resumo_atendimento(uuid, date, int);
+DROP FUNCTION IF EXISTS public.cs_resumo_atendimento(uuid, date, int, date, date);
 
 CREATE OR REPLACE FUNCTION public.cs_resumo_atendimento(
   p_cliente_id uuid,
   p_inicio_projeto date DEFAULT '2026-04-27'::date,
-  p_meta_mensal int DEFAULT 800
+  p_meta_mensal int DEFAULT 800,
+  p_custom_start date DEFAULT NULL,
+  p_custom_end date DEFAULT NULL
 ) RETURNS jsonb
 LANGUAGE sql
 STABLE
@@ -29,7 +36,9 @@ cfg AS (
     (date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo') AS mf_end,
     (date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo') AS m_atual_start,
     GREATEST(1, ((now() AT TIME ZONE 'America/Sao_Paulo')::date - p_inicio_projeto)::int) AS dias_corridos,
-    ((now() AT TIME ZONE 'America/Sao_Paulo')::date - (date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo')::date) + 1)::int AS dias_mes_atual
+    ((now() AT TIME ZONE 'America/Sao_Paulo')::date - (date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo')::date) + 1)::int AS dias_mes_atual,
+    CASE WHEN p_custom_start IS NOT NULL THEN p_custom_start AT TIME ZONE 'America/Sao_Paulo' END AS cust_start,
+    CASE WHEN p_custom_end IS NOT NULL THEN (p_custom_end + interval '1 day') AT TIME ZONE 'America/Sao_Paulo' END AS cust_end
 ),
 contatos_excl AS (
   SELECT id, contact_id FROM conversas_chatwoot
@@ -44,34 +53,23 @@ msgs AS (
   WHERE m.cliente_id = p_cliente_id
     AND m.conversa_id NOT IN (SELECT id FROM contatos_excl)
 ),
--- DISPAROS = cada nota privada do bot (cada msg conta)
+-- DISPAROS = cada nota privada do bot
 disparos AS (
-  SELECT m.conversa_id, m.contact_id, m.message_created_at AS dt,
-    LEAD(m.message_created_at) OVER (PARTITION BY m.conversa_id ORDER BY m.message_created_at) AS prox_dt
+  SELECT m.conversa_id, m.contact_id, m.message_created_at AS dt
   FROM msgs m
   WHERE m.message_type=1 AND m.private=true
 ),
--- Cada disparo: respondeu? (msg do aluno entre este disparo e o próximo na mesma conversa)
-disparos_resp AS (
-  SELECT d.*,
-    EXISTS(
-      SELECT 1 FROM msgs r
-      WHERE r.conversa_id = d.conversa_id
-        AND r.message_type=0 AND r.private=false
-        AND r.message_created_at > d.dt
-        AND (d.prox_dt IS NULL OR r.message_created_at < d.prox_dt)
-    ) AS respondeu
-  FROM disparos d
-),
--- Cada disparo pode cair em múltiplos buckets (overlap permitido)
+-- Cada disparo pode cair em múltiplos buckets (overlap)
 disparos_buckets AS (
-  SELECT dr.conversa_id, dr.contact_id, dr.dt, dr.respondeu, b.bucket
-  FROM disparos_resp dr
+  SELECT d.conversa_id, d.contact_id, d.dt, b.bucket
+  FROM disparos d
   CROSS JOIN LATERAL (
     SELECT unnest(ARRAY[
-      CASE WHEN dr.dt >= (SELECT d7_start FROM cfg) THEN 'd7' END,
-      CASE WHEN dr.dt >= (SELECT d8_start FROM cfg) AND dr.dt < (SELECT d8_end FROM cfg) THEN 'd8_14' END,
-      CASE WHEN dr.dt >= (SELECT mf_start FROM cfg) AND dr.dt < (SELECT mf_end FROM cfg) THEN 'mes_fechado' END
+      CASE WHEN d.dt >= (SELECT d7_start FROM cfg) THEN 'd7' END,
+      CASE WHEN d.dt >= (SELECT d8_start FROM cfg) AND d.dt < (SELECT d8_end FROM cfg) THEN 'd8_14' END,
+      CASE WHEN d.dt >= (SELECT mf_start FROM cfg) AND d.dt < (SELECT mf_end FROM cfg) THEN 'mes_fechado' END,
+      CASE WHEN (SELECT cust_start FROM cfg) IS NOT NULL
+        AND d.dt >= (SELECT cust_start FROM cfg) AND d.dt < (SELECT cust_end FROM cfg) THEN 'custom' END
     ]) AS bucket
   ) AS b
   WHERE b.bucket IS NOT NULL
@@ -79,12 +77,11 @@ disparos_buckets AS (
 kpi_agg AS (
   SELECT bucket,
     COUNT(*) AS disparos,
-    COUNT(*) FILTER (WHERE respondeu) AS respostas,
     COUNT(DISTINCT contact_id) AS alunos_atendidos
   FROM disparos_buckets
   GROUP BY bucket
 ),
--- Volume de msgs públicas por bucket (com overlap)
+-- Mensagens públicas por bucket (com overlap)
 msgs_buckets AS (
   SELECT m.conversa_id, m.contact_id, m.message_type, b.bucket
   FROM msgs m
@@ -92,7 +89,9 @@ msgs_buckets AS (
     SELECT unnest(ARRAY[
       CASE WHEN m.message_created_at >= (SELECT d7_start FROM cfg) THEN 'd7' END,
       CASE WHEN m.message_created_at >= (SELECT d8_start FROM cfg) AND m.message_created_at < (SELECT d8_end FROM cfg) THEN 'd8_14' END,
-      CASE WHEN m.message_created_at >= (SELECT mf_start FROM cfg) AND m.message_created_at < (SELECT mf_end FROM cfg) THEN 'mes_fechado' END
+      CASE WHEN m.message_created_at >= (SELECT mf_start FROM cfg) AND m.message_created_at < (SELECT mf_end FROM cfg) THEN 'mes_fechado' END,
+      CASE WHEN (SELECT cust_start FROM cfg) IS NOT NULL
+        AND m.message_created_at >= (SELECT cust_start FROM cfg) AND m.message_created_at < (SELECT cust_end FROM cfg) THEN 'custom' END
     ]) AS bucket
   ) AS b
   WHERE b.bucket IS NOT NULL AND m.private=false AND m.message_type IN (0,1)
@@ -102,6 +101,13 @@ msg_agg AS (
     COUNT(*) FILTER (WHERE message_type=0) AS msgs_aluno,
     COUNT(*) FILTER (WHERE message_type=1) AS msgs_tcs
   FROM msgs_buckets
+  GROUP BY bucket
+),
+-- RESPOSTAS = conversas únicas com msg incoming do aluno no período (definição operacional)
+respostas_agg AS (
+  SELECT bucket, COUNT(DISTINCT conversa_id) AS respostas
+  FROM msgs_buckets
+  WHERE message_type=0
   GROUP BY bucket
 ),
 -- Classificação de assuntos (1 conversa = 1 assunto dominante)
@@ -121,7 +127,9 @@ classif AS (
       WHEN texto ~* '\m(plataforma|hotmart|n[ãa]o consigo acessar|n[ãa]o abre|n[ãa]o carrega|login|senha|v[ií]deo n[ãa]o|aula n[ãa]o (abre|carrega)|youtube|aplicativo)' THEN 'tecnico'
       WHEN texto ~* '\m(n[ãa]o entendi|t[oô] perdid|tenho d[uú]vida|me ajuda|dif[ií]cil|n[ãa]o sei como|preciso de ajuda|complicado)' THEN 'dificuldade'
       WHEN texto ~* '\m(consegui|arrematei|arremat|fechei|primeira venda|primeiro im[oó]vel|deu certo|funcionou|resultado|fechad[ao]|venda)' THEN 'prova'
+      WHEN texto ~* '\m(assisti|assistindo|comecei|come[çc]ando|j[aá] comecei|estou (assistindo|fazendo|estudando|vendo)|t[oô] (assistindo|fazendo|estudando)|m[oó]dulo|fiz a (aula|tarefa|atividade))' THEN 'engajamento_curso'
       WHEN texto ~* '\m(vou (fazer|come[çc]ar|tentar|seguir|estudar|assistir|acessar|voltar)|me comprometo|aceito o desafio|t[oô] dentro|partiu|bora|vamo)' THEN 'compromisso'
+      WHEN texto ~* '\m(grupo|telegram|discord|comunidade|whats(app)? do)' THEN 'comunidade'
       WHEN texto ~* '\m(gratid[ãa]o|aben[çc]oad|obrigad|grat[oa]|familia|filh|m[ãa]e|esposa|marido|sa[uú]de|hospitalizad|viagem|viajando|ocupad|luto|doente)' THEN 'afetivo'
       ELSE 'outros'
     END AS categoria,
@@ -135,7 +143,9 @@ classif_buckets AS (
     SELECT unnest(ARRAY[
       CASE WHEN cl.ult_msg >= (SELECT d7_start FROM cfg) THEN 'd7' END,
       CASE WHEN cl.ult_msg >= (SELECT d8_start FROM cfg) AND cl.ult_msg < (SELECT d8_end FROM cfg) THEN 'd8_14' END,
-      CASE WHEN cl.ult_msg >= (SELECT mf_start FROM cfg) AND cl.ult_msg < (SELECT mf_end FROM cfg) THEN 'mes_fechado' END
+      CASE WHEN cl.ult_msg >= (SELECT mf_start FROM cfg) AND cl.ult_msg < (SELECT mf_end FROM cfg) THEN 'mes_fechado' END,
+      CASE WHEN (SELECT cust_start FROM cfg) IS NOT NULL
+        AND cl.ult_msg >= (SELECT cust_start FROM cfg) AND cl.ult_msg < (SELECT cust_end FROM cfg) THEN 'custom' END
     ]) AS bucket
   ) AS b
   WHERE b.bucket IS NOT NULL
@@ -160,37 +170,53 @@ desafio_agg AS (
     ) AS desafio
   FROM classif_buckets GROUP BY bucket
 ),
-ritmo_d7_raw AS (
-  SELECT (message_created_at AT TIME ZONE 'America/Sao_Paulo')::date AS dia,
-    COUNT(*) FILTER (WHERE message_type=0) AS rec,
-    COUNT(*) FILTER (WHERE message_type=1) AS env
-  FROM msgs
-  WHERE private=false AND message_type IN (0,1)
-    AND message_created_at >= (SELECT d7_start FROM cfg)
-  GROUP BY 1
+-- Ritmo por bucket (d7, d8_14 e custom — mes_fechado fica vazio)
+ritmo_by_bucket AS (
+  SELECT
+    b.bucket,
+    (m.message_created_at AT TIME ZONE 'America/Sao_Paulo')::date AS dia,
+    COUNT(*) FILTER (WHERE m.message_type=0) AS rec,
+    COUNT(*) FILTER (WHERE m.message_type=1) AS env
+  FROM msgs m
+  CROSS JOIN LATERAL (
+    SELECT unnest(ARRAY[
+      CASE WHEN m.message_created_at >= (SELECT d7_start FROM cfg) THEN 'd7' END,
+      CASE WHEN m.message_created_at >= (SELECT d8_start FROM cfg) AND m.message_created_at < (SELECT d8_end FROM cfg) THEN 'd8_14' END,
+      CASE WHEN (SELECT cust_start FROM cfg) IS NOT NULL
+        AND m.message_created_at >= (SELECT cust_start FROM cfg) AND m.message_created_at < (SELECT cust_end FROM cfg) THEN 'custom' END
+    ]) AS bucket
+  ) AS b
+  WHERE b.bucket IS NOT NULL AND m.private=false AND m.message_type IN (0,1)
+  GROUP BY 1, 2
 ),
-ritmo_d7 AS (SELECT jsonb_agg(jsonb_build_object('dia', to_char(dia, 'DD/MM'), 'rec', rec, 'env', env) ORDER BY dia) AS r FROM ritmo_d7_raw),
-ritmo_d8_raw AS (
-  SELECT (message_created_at AT TIME ZONE 'America/Sao_Paulo')::date AS dia,
-    COUNT(*) FILTER (WHERE message_type=0) AS rec,
-    COUNT(*) FILTER (WHERE message_type=1) AS env
-  FROM msgs
-  WHERE private=false AND message_type IN (0,1)
-    AND message_created_at >= (SELECT d8_start FROM cfg)
-    AND message_created_at < (SELECT d8_end FROM cfg)
-  GROUP BY 1
+ritmo_agg AS (
+  SELECT bucket,
+    jsonb_agg(jsonb_build_object('dia', to_char(dia, 'DD/MM'), 'rec', rec, 'env', env) ORDER BY dia) AS r
+  FROM ritmo_by_bucket GROUP BY bucket
 ),
-ritmo_d8 AS (SELECT jsonb_agg(jsonb_build_object('dia', to_char(dia, 'DD/MM'), 'rec', rec, 'env', env) ORDER BY dia) AS r FROM ritmo_d8_raw),
-heatmap_d7_raw AS (
-  SELECT EXTRACT(HOUR FROM message_created_at AT TIME ZONE 'America/Sao_Paulo')::int AS h, COUNT(*) AS n
-  FROM msgs
-  WHERE private=false AND message_type=0
-    AND message_created_at >= (SELECT d7_start FROM cfg)
-  GROUP BY 1
+-- Heatmap só pra d7 e custom
+heatmap_by_bucket AS (
+  SELECT
+    b.bucket,
+    EXTRACT(HOUR FROM m.message_created_at AT TIME ZONE 'America/Sao_Paulo')::int AS h,
+    COUNT(*) AS n
+  FROM msgs m
+  CROSS JOIN LATERAL (
+    SELECT unnest(ARRAY[
+      CASE WHEN m.message_created_at >= (SELECT d7_start FROM cfg) THEN 'd7' END,
+      CASE WHEN (SELECT cust_start FROM cfg) IS NOT NULL
+        AND m.message_created_at >= (SELECT cust_start FROM cfg) AND m.message_created_at < (SELECT cust_end FROM cfg) THEN 'custom' END
+    ]) AS bucket
+  ) AS b
+  WHERE b.bucket IS NOT NULL AND m.private=false AND m.message_type=0
+  GROUP BY 1, 2
 ),
-heatmap_d7 AS (
-  SELECT array_agg(COALESCE(n, 0) ORDER BY h) AS arr
-  FROM (SELECT g.h, hr.n FROM generate_series(0, 23) AS g(h) LEFT JOIN heatmap_d7_raw hr ON hr.h = g.h) x
+heatmap_agg AS (
+  SELECT bucket,
+    (SELECT array_agg(COALESCE(n2.n, 0) ORDER BY g.h)
+     FROM generate_series(0,23) AS g(h)
+     LEFT JOIN (SELECT h, n FROM heatmap_by_bucket WHERE bucket = ob.bucket) n2 ON n2.h = g.h) AS arr
+  FROM (SELECT DISTINCT bucket FROM heatmap_by_bucket) ob
 ),
 frases_raw AS (
   SELECT DISTINCT ON (m.conversa_id, cb.categoria, cb.bucket) m.content, cb.categoria, cb.bucket
@@ -199,7 +225,7 @@ frases_raw AS (
   WHERE m.message_type=0 AND m.private=false
     AND m.content IS NOT NULL
     AND LENGTH(m.content) BETWEEN 30 AND 250
-    AND cb.bucket IN ('d7','d8_14','mes_fechado')
+    AND cb.bucket IN ('d7','d8_14','mes_fechado','custom')
     AND cb.categoria <> 'outros'
     AND m.content !~* '(agradec(emos|o) (seu|sua) (contato|mensagem))|(n[ãa]o estamos dispon[ií]veis)|(responderemos assim que)|(deixe sua mensagem que logo retorno)|(em breve envio)'
 ),
@@ -215,27 +241,36 @@ frases_agg AS (
     FROM frases_ranked WHERE rn <= 3 GROUP BY bucket, categoria
   ) x GROUP BY bucket
 ),
--- All-time: disparos (cada msg), respostas e alunos únicos ao longo do projeto
-alltime_disparos AS (
-  SELECT COUNT(*) AS disparos,
-    COUNT(*) FILTER (WHERE respondeu) AS respostas,
+-- All-time: respostas = conversas únicas com incoming msg em qualquer momento
+alltime_agg AS (
+  SELECT
+    COUNT(*) AS disparos,
     COUNT(DISTINCT contact_id) AS alunos
-  FROM disparos_resp
+  FROM disparos
+),
+alltime_resp AS (
+  SELECT COUNT(DISTINCT conversa_id) AS respostas
+  FROM msgs WHERE private=false AND message_type=0
 ),
 alltime_conv AS (
   SELECT COUNT(DISTINCT conversa_id) AS conversas_unicas
   FROM msgs WHERE private=false AND message_type IN (0,1)
 ),
--- Mês atual: disparos no mês corrente
+-- Mês atual: respostas = conversas únicas com incoming msg no mês atual
 mes_atual_agg AS (
   SELECT
     COUNT(*) AS disparos,
     COUNT(DISTINCT contact_id) AS alunos
-  FROM disparos_resp
+  FROM disparos
   WHERE dt >= (SELECT m_atual_start FROM cfg)
 ),
+mes_atual_resp AS (
+  SELECT COUNT(DISTINCT conversa_id) AS respostas
+  FROM msgs WHERE private=false AND message_type=0
+    AND message_created_at >= (SELECT m_atual_start FROM cfg)
+),
 periodos_meta AS (
-  SELECT * FROM (VALUES
+  SELECT bucket, label, sublabel FROM (VALUES
     ('d7', 'Últimos 7 dias',
       to_char(((SELECT d7_start FROM cfg) AT TIME ZONE 'America/Sao_Paulo')::date, 'DD/MM') || ' a ' || to_char((now() AT TIME ZONE 'America/Sao_Paulo')::date, 'DD/MM')),
     ('d8_14', 'Semana retrasada',
@@ -245,6 +280,12 @@ periodos_meta AS (
         || '/' || to_char(((SELECT mf_start FROM cfg) AT TIME ZONE 'America/Sao_Paulo')::date, 'YY'),
       to_char(((SELECT mf_start FROM cfg) AT TIME ZONE 'America/Sao_Paulo')::date, 'DD/MM/YYYY') || ' a ' || to_char((((SELECT mf_end FROM cfg) - interval '1 day') AT TIME ZONE 'America/Sao_Paulo')::date, 'DD/MM/YYYY'))
   ) AS t(bucket, label, sublabel)
+  UNION ALL
+  -- Adiciona bucket 'custom' apenas se p_custom_start foi passado
+  SELECT 'custom',
+    to_char(p_custom_start, 'DD/MM') || ' a ' || to_char(p_custom_end, 'DD/MM'),
+    to_char(p_custom_start, 'DD/MM/YYYY') || ' a ' || to_char(p_custom_end, 'DD/MM/YYYY')
+  WHERE p_custom_start IS NOT NULL AND p_custom_end IS NOT NULL
 )
 SELECT jsonb_build_object(
   'atualizado_em', to_char(now() AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD HH24:MI'),
@@ -252,32 +293,32 @@ SELECT jsonb_build_object(
   'meta_mensal', p_meta_mensal,
   'dias_corridos', (SELECT dias_corridos FROM cfg),
   'alltime', (SELECT jsonb_build_object(
-    'disparos', ad.disparos,
-    'respostas', ad.respostas,
-    'taxa_resp', CASE WHEN ad.disparos > 0 THEN ROUND(100.0*ad.respostas/ad.disparos, 1) ELSE 0 END,
-    'alunos_atendidos', ad.alunos,
-    'disparos_por_aluno', CASE WHEN ad.alunos > 0 THEN ROUND(ad.disparos::numeric/ad.alunos, 2) ELSE 0 END,
+    'disparos', a.disparos,
+    'respostas', (SELECT respostas FROM alltime_resp),
+    'taxa_resp', CASE WHEN a.disparos > 0
+      THEN ROUND(100.0*(SELECT respostas FROM alltime_resp)/a.disparos, 1) ELSE 0 END,
+    'alunos_atendidos', a.alunos,
+    'disparos_por_aluno', CASE WHEN a.alunos > 0 THEN ROUND(a.disparos::numeric/a.alunos, 2) ELSE 0 END,
     'conversas_unicas', (SELECT conversas_unicas FROM alltime_conv),
-    -- Meta proporcional: disparos / (dias_corridos * meta_mensal/30)
     'meta_proporcional', ROUND((SELECT dias_corridos FROM cfg) * p_meta_mensal::numeric / 30)::int,
     'pct_meta', CASE WHEN (SELECT dias_corridos FROM cfg) > 0 AND p_meta_mensal > 0
-      THEN ROUND(100.0 * ad.disparos / ((SELECT dias_corridos FROM cfg) * p_meta_mensal::numeric / 30), 1)
-      ELSE 0 END,
+      THEN ROUND(100.0 * a.disparos / ((SELECT dias_corridos FROM cfg) * p_meta_mensal::numeric / 30), 1) ELSE 0 END,
     'pace_diario', CASE WHEN (SELECT dias_corridos FROM cfg) > 0
-      THEN ROUND(ad.disparos::numeric / (SELECT dias_corridos FROM cfg), 1) ELSE 0 END
-  ) FROM alltime_disparos ad),
+      THEN ROUND(a.disparos::numeric / (SELECT dias_corridos FROM cfg), 1) ELSE 0 END
+  ) FROM alltime_agg a),
   'mes_atual', (SELECT jsonb_build_object(
     'label', (ARRAY['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'])[EXTRACT(MONTH FROM now() AT TIME ZONE 'America/Sao_Paulo')::int]
       || '/' || to_char(now() AT TIME ZONE 'America/Sao_Paulo', 'YY'),
     'disparos', ma.disparos,
+    'respostas', (SELECT respostas FROM mes_atual_resp),
+    'taxa_resp', CASE WHEN ma.disparos > 0
+      THEN ROUND(100.0*(SELECT respostas FROM mes_atual_resp)/ma.disparos, 1) ELSE 0 END,
     'alunos_atendidos', ma.alunos,
     'dias_decorridos', (SELECT dias_mes_atual FROM cfg),
     'meta', p_meta_mensal,
-    -- Meta proporcional pelos dias decorridos no mês
     'meta_proporcional', ROUND((SELECT dias_mes_atual FROM cfg) * p_meta_mensal::numeric / 30)::int,
     'pct_meta', CASE WHEN (SELECT dias_mes_atual FROM cfg) > 0 AND p_meta_mensal > 0
-      THEN ROUND(100.0 * ma.disparos / ((SELECT dias_mes_atual FROM cfg) * p_meta_mensal::numeric / 30), 1)
-      ELSE 0 END,
+      THEN ROUND(100.0 * ma.disparos / ((SELECT dias_mes_atual FROM cfg) * p_meta_mensal::numeric / 30), 1) ELSE 0 END,
     'projecao_fim_mes', CASE WHEN (SELECT dias_mes_atual FROM cfg) > 0
       THEN ROUND(ma.disparos::numeric * 30 / (SELECT dias_mes_atual FROM cfg))::int ELSE 0 END
   ) FROM mes_atual_agg ma),
@@ -285,8 +326,9 @@ SELECT jsonb_build_object(
     SELECT jsonb_object_agg(pm.bucket, jsonb_build_object(
       'label', pm.label, 'sublabel', pm.sublabel,
       'disparos', COALESCE(k.disparos, 0),
-      'respostas', COALESCE(k.respostas, 0),
-      'taxa_resp', CASE WHEN COALESCE(k.disparos,0) > 0 THEN ROUND(100.0*k.respostas/k.disparos, 1) ELSE 0 END,
+      'respostas', COALESCE(r.respostas, 0),
+      'taxa_resp', CASE WHEN COALESCE(k.disparos,0) > 0
+        THEN ROUND(100.0*COALESCE(r.respostas,0)/k.disparos, 1) ELSE 0 END,
       'alunos_atendidos', COALESCE(k.alunos_atendidos, 0),
       'disparos_por_aluno', CASE WHEN COALESCE(k.alunos_atendidos,0) > 0
         THEN ROUND(k.disparos::numeric/k.alunos_atendidos, 2) ELSE 0 END,
@@ -295,25 +337,23 @@ SELECT jsonb_build_object(
       'assuntos', COALESCE(a.assuntos, '[]'::jsonb),
       'desafio', COALESCE(d.desafio, '{}'::jsonb),
       'frases', COALESCE(f.frases, '{}'::jsonb),
-      'ritmo', CASE pm.bucket
-        WHEN 'd7' THEN COALESCE((SELECT r FROM ritmo_d7), '[]'::jsonb)
-        WHEN 'd8_14' THEN COALESCE((SELECT r FROM ritmo_d8), '[]'::jsonb)
-        ELSE '[]'::jsonb END,
-      'heatmap', CASE pm.bucket
-        WHEN 'd7' THEN COALESCE(to_jsonb((SELECT arr FROM heatmap_d7)), '[]'::jsonb)
-        ELSE '[]'::jsonb END
+      'ritmo', COALESCE(rt.r, '[]'::jsonb),
+      'heatmap', COALESCE(to_jsonb(hm.arr), '[]'::jsonb)
     ))
     FROM periodos_meta pm
     LEFT JOIN kpi_agg k ON k.bucket = pm.bucket
     LEFT JOIN msg_agg m ON m.bucket = pm.bucket
+    LEFT JOIN respostas_agg r ON r.bucket = pm.bucket
     LEFT JOIN assuntos_agg a ON a.bucket = pm.bucket
     LEFT JOIN desafio_agg d ON d.bucket = pm.bucket
     LEFT JOIN frases_agg f ON f.bucket = pm.bucket
+    LEFT JOIN ritmo_agg rt ON rt.bucket = pm.bucket
+    LEFT JOIN heatmap_agg hm ON hm.bucket = pm.bucket
   )
 )
 $func$;
 
-GRANT EXECUTE ON FUNCTION public.cs_resumo_atendimento(uuid, date, int) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.cs_resumo_atendimento(uuid, date, int, date, date) TO anon, authenticated;
 
 COMMENT ON FUNCTION public.cs_resumo_atendimento IS
-'v2 — Disparo = cada nota privada do bot; buckets independentes via LATERAL; remove cs_voltou; adiciona alunos_atendidos, disparos_por_aluno, pct_meta e pace.';
+'v3 — Respostas = conversas únicas com msg do aluno no período (alinhado dash operacional); aceita p_custom_start/p_custom_end pra retornar bucket "custom" sob demanda.';

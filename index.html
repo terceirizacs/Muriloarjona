@@ -2498,7 +2498,7 @@ function renderAtendimento(){
 
   // === BLOCO Conversas por Assunto (hierárquico, 1 conv = 1 assunto) ===
   h+='<div class="sec">💬 Conversas por Assunto</div>';
-  h+='<div style="font-size:12px;color:var(--t3);margin:-10px 0 14px">Cada conversa é classificada pelo assunto dominante (prioridade: risco → técnico → dificuldade → prova → compromisso → afetivo → outros).</div>';
+  h+='<div style="font-size:12px;color:var(--t3);margin:-10px 0 14px">Cada conversa é classificada pelo assunto dominante (prioridade: risco → técnico → dificuldade → prova → engajamento com curso → compromisso → comunidade → afetivo → outros).</div>';
   h+='<div class="card" style="padding:18px 22px">';
   // Ordena por % desc com "outros" no fim (idempotente caso o snapshot já venha enriquecido)
   const assuntosOrd = [...p.assuntos].filter(a=>a.n>0).sort((a,b)=>{
