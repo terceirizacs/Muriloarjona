@@ -2146,20 +2146,21 @@ const ATEND_SNAPSHOT={
   inicio_projeto:'2026-04-27',
   meta_mensal:800,
   alltime:{
-    disparos:2095, respostas:869, taxa_resp:41.5,
+    disparos:2095, respostas:810, taxa_resp:48.4,
     alunos_atendidos:1675, disparos_por_aluno:1.25,
     conversas_unicas:811, dias_corridos:36,
     meta_proporcional:960, pct_meta:218.2, pace_diario:58.2
   },
   mes_atual:{
-    label:'Jun/26', disparos:415, alunos_atendidos:411,
+    label:'Jun/26', disparos:415, respostas:212, taxa_resp:51.1,
+    alunos_atendidos:411,
     dias_decorridos:2, meta:800, meta_proporcional:53,
     pct_meta:778.1, projecao_fim_mes:6225
   },
   periodos:{
     'd7':{
       label:'Últimos 7 dias',sublabel:'26/05 a 02/06',
-      disparos:415, respostas:200, taxa_resp:48.2,
+      disparos:415, respostas:258, taxa_resp:62.8,
       alunos_atendidos:411, disparos_por_aluno:1.01,
       msgs_aluno:1130, msgs_tcs:1169,
       assuntos:[
@@ -2209,7 +2210,7 @@ const ATEND_SNAPSHOT={
     },
     'd8_14':{
       label:'Semana retrasada',sublabel:'19/05 a 25/05',
-      disparos:501, respostas:352, taxa_resp:70.3,
+      disparos:501, respostas:342, taxa_resp:68.3,
       alunos_atendidos:501, disparos_por_aluno:1.00,
       msgs_aluno:1085, msgs_tcs:934,
       assuntos:[
@@ -2232,7 +2233,7 @@ const ATEND_SNAPSHOT={
     },
     'mai':{
       label:'Maio/26 fechado',sublabel:'01/05 a 31/05',
-      disparos:1124, respostas:525, taxa_resp:46.7,
+      disparos:1124, respostas:562, taxa_resp:50.0,
       alunos_atendidos:1116, disparos_por_aluno:1.01,
       msgs_aluno:2192, msgs_tcs:1794,
       assuntos:[
@@ -2253,6 +2254,48 @@ const ATEND_SNAPSHOT={
 };
 
 let ATEND_PERIODO_ATUAL='d7';
+let ATEND_DATA_DE='';
+let ATEND_DATA_ATE='';
+
+function aplicarFiltroDataAtend(){
+  const de=document.getElementById('atendDataDe').value;
+  const ate=document.getElementById('atendDataAte').value;
+  if(!de || !ate){alert('Selecione data inicial e final');return;}
+  if(de>ate){alert('Data inicial maior que final');return;}
+  ATEND_DATA_DE=de; ATEND_DATA_ATE=ate;
+  // Por enquanto, sem integração GAS+Supabase ativa, marcamos o período custom como aviso
+  const fmt=s=>{const[y,m,d]=s.split('-');return d+'/'+m+'/'+y.slice(2);};
+  ATEND_SNAPSHOT.periodos.custom={
+    label:fmt(de)+' a '+fmt(ate), sublabel:'Filtro customizado',
+    disparos:0, respostas:0, taxa_resp:0,
+    alunos_atendidos:0, disparos_por_aluno:0,
+    msgs_aluno:0, msgs_tcs:0,
+    assuntos:[], desafio:{pct_mencionou:0,n_mencionou:0,pct_engajou:0,n_engajou:0},
+    frases:{}, ritmo:null, heatmap:null,
+    observacao:'Filtro customizado requer integração GAS↔Supabase ativa (consulta sob demanda). Quando o GAS estiver plugado, esse filtro vai chamar o Supabase com o intervalo escolhido e popular automaticamente. Por enquanto use os 3 períodos fixos.'
+  };
+  ATEND_PERIODO_ATUAL='custom';
+  // Se houver função plugada pra buscar do GAS com params, chama
+  if(typeof fetchAtendimentoCustom==='function'){
+    fetchAtendimentoCustom(de, ate).then(data=>{
+      if(data && typeof mergeAtendimentoFromServer==='function'){
+        // Renomeia a chave 'custom' antes do merge
+        if(data.periodos && data.periodos.custom){
+          ATEND_SNAPSHOT.periodos.custom = data.periodos.custom;
+          renderAtendimento();
+        }
+      }
+    }).catch(e=>console.warn('Filtro custom falhou:',e));
+  }
+  renderAtendimento();
+}
+
+function limparFiltroDataAtend(){
+  ATEND_DATA_DE=''; ATEND_DATA_ATE='';
+  delete ATEND_SNAPSHOT.periodos.custom;
+  if(ATEND_PERIODO_ATUAL==='custom') ATEND_PERIODO_ATUAL='d7';
+  renderAtendimento();
+}
 
 // Mescla o JSON vindo do Supabase (via GAS) com o ATEND_SNAPSHOT.
 // Mapeia labels/emojis/cores dos assuntos (a RPC só retorna cat/n/pct).
@@ -2348,17 +2391,37 @@ function renderAtendimento(){
   const p=S.periodos[ATEND_PERIODO_ATUAL];
   if(!p){cont.innerHTML='<div style="text-align:center;padding:60px;color:var(--t3)">Período não encontrado.</div>';return;}
 
-  // === Header com filtro de período + selo de atualização ===
+  // === Header com filtro de período + filtro de data customizado + selo de atualização ===
   let h='';
-  h+='<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;margin:8px 0 20px">';
-  h+='<div style="display:flex;gap:8px;flex-wrap:wrap">';
+  h+='<div style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:16px;margin:8px 0 14px">';
+  // Bloco esquerda: pills + filtro customizado
+  h+='<div style="display:flex;flex-direction:column;gap:10px;flex:1;min-width:280px">';
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
   ['d7','d8_14','mai'].forEach(k=>{
     const lab=S.periodos[k].label;
-    const cls=(k===ATEND_PERIODO_ATUAL)?'atend-pill active':'atend-pill';
+    const cls=(k===ATEND_PERIODO_ATUAL && !S.periodos.custom)?'atend-pill active':'atend-pill';
     h+='<button class="'+cls+'" onclick="setAtendPeriodo(\''+k+'\',this)">'+lab+'</button>';
   });
+  if(S.periodos.custom){
+    const ccls=(ATEND_PERIODO_ATUAL==='custom')?'atend-pill active':'atend-pill';
+    h+='<button class="'+ccls+'" onclick="setAtendPeriodo(\'custom\',this)">📅 '+S.periodos.custom.label+'</button>';
+  }
   h+='</div>';
-  h+='<div style="font-size:12px;color:var(--t3);font-family:JetBrains Mono">🕒 Atualizado em '+S.atualizado_em+'</div>';
+  // Linha de filtro customizado
+  h+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--t3)">';
+  h+='<span style="color:var(--t3)">Ou intervalo:</span>';
+  h+='<input type="date" id="atendDataDe" value="'+(ATEND_DATA_DE||'')+'" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--t1);font-size:12px;font-family:JetBrains Mono">';
+  h+='<span style="color:var(--t3)">até</span>';
+  h+='<input type="date" id="atendDataAte" value="'+(ATEND_DATA_ATE||'')+'" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--t1);font-size:12px;font-family:JetBrains Mono">';
+  h+='<button onclick="aplicarFiltroDataAtend()" style="padding:6px 14px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--accent),var(--a2));color:#fff;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px">APLICAR</button>';
+  if(S.periodos.custom)h+='<button onclick="limparFiltroDataAtend()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--t3);font-size:11px;cursor:pointer">Limpar</button>';
+  h+='</div>';
+  h+='</div>';
+  // Bloco direita: selo de atualização
+  h+='<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;text-align:right">';
+  h+='<div style="font-size:12px;color:var(--t2);font-family:JetBrains Mono">🕒 Atualizado em '+S.atualizado_em+'</div>';
+  h+='<div style="font-size:10.5px;color:var(--t3);max-width:240px">Atualiza automaticamente todo dia às <strong style="color:var(--t2)">7h00 (Brasília)</strong></div>';
+  h+='</div>';
   h+='</div>';
   h+='<div style="font-size:13px;color:var(--t2);margin-bottom:6px">Período: <strong style="color:var(--t1)">'+p.label+'</strong> · '+p.sublabel+'</div>';
   if(p.observacao){
