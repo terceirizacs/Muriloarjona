@@ -678,22 +678,47 @@ function renderVisaoGeralCS(){
   // ── KPIs ──
   let h='';
   h+='<div class="kpis kpis-vg" id="kpisVG">';
-  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total Alunos</div><div class="kpi-v">'+fN(total)+'</div><div class="kpi-s">filtro aplicado</div></div>';
-  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Acessaram</div><div class="kpi-v">'+fN(acessou)+'</div><div class="kpi-s">'+rd(pctAcessou)+'% da base</div></div>';
-  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Nunca Acessaram</div><div class="kpi-v">'+fN(nuncaAcessou)+'</div><div class="kpi-s">'+rd(pctNunca)+'% da base</div></div>';
-  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--gold),var(--orange))"></div><div class="kpi-l">Progresso Médio</div><div class="kpi-v">'+rd(avgProg)+'%</div><div class="kpi-s">média do curso</div></div>';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total Alunos</div><div class="kpi-v" style="color:var(--a2)">'+fN(total)+'</div></div>';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Acessaram</div><div class="kpi-v" style="color:var(--cyan)">'+fN(acessou)+'</div><div class="kpi-s">'+rd(pctAcessou)+'% da base</div></div>';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Nunca Acessaram</div><div class="kpi-v" style="color:var(--red)">'+fN(nuncaAcessou)+'</div><div class="kpi-s">'+rd(pctNunca)+'% da base</div></div>';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--gold),var(--orange))"></div><div class="kpi-l">Progresso Médio</div><div class="kpi-v" style="color:var(--gold)">'+rd(avgProg)+'%</div><div class="kpi-s">média do curso</div></div>';
   h+='</div>';
 
-  // ── Funil (Jornada do Aluno) ──
+  // ── Funil (Jornada do Aluno) — estilo Bruno: g2 com barras verticais + Detalhamento ──
   h+='<div class="sec">📊 Jornada do Aluno</div>';
-  const funilEntries=Object.entries(funilMap).sort((a,b)=>b[1]-a[1]);
+  const fOrdMurilo=['Nunca acessou','Acessou mas não consumiu','Em andamento','Concluído'];
+  const fColMurilo={'Nunca acessou':'#f87171','Acessou mas não consumiu':'#fb923c','Em andamento':'#fbbf24','Concluído':'#34d399'};
+  const fBgMurilo={'Nunca acessou':'rgba(248,113,113,.12)','Acessou mas não consumiu':'rgba(251,146,60,.12)','Em andamento':'rgba(251,191,36,.12)','Concluído':'rgba(52,211,153,.12)'};
   const funilCores=['var(--accent)','var(--a2)','var(--teal)','var(--green)','var(--orange)','var(--gold)','var(--sky)','var(--cyan)','var(--pink)','var(--red)'];
-  h+='<div class="card"><h3>Distribuição por Etapa</h3><div class="d">Funil de engajamento</div>';
-  funilEntries.forEach(([k,v],i)=>{
-    const pc=total>0?v/total*100:0;
-    const c=funilCores[i%funilCores.length];
-    h+='<div class="ft-row"><span class="ft-tag" style="background:'+c+';color:#fff;opacity:.9;min-width:200px">'+k+'</span><span class="ft-qty">'+fN(v)+'</span><span class="ft-pct">'+rd(pc)+'%</span><div class="ft-track"><div class="ft-fill" style="width:'+pc.toFixed(1)+'%;background:'+c+'"></div></div></div>';
+  // Monta lista na ordem do funil, ou caso encontre etapas fora dela, adiciona ao fim
+  const funilEntriesAll=Object.entries(funilMap);
+  const fEtapas=[], fQtds=[], fCores=[], fBgs=[];
+  fOrdMurilo.forEach(name=>{if(funilMap[name]!==undefined&&funilMap[name]>0){fEtapas.push(name);fQtds.push(funilMap[name]);fCores.push(fColMurilo[name]);fBgs.push(fBgMurilo[name]);}});
+  funilEntriesAll.forEach(([k,v],i)=>{if(!fOrdMurilo.includes(k)&&v>0){fEtapas.push(k);fQtds.push(v);const c=funilCores[(fEtapas.length-1)%funilCores.length];fCores.push(c);fBgs.push('rgba(139,124,247,.12)');}});
+  const fMax=Math.max(...fQtds,1);
+  h+='<div class="g2">';
+  // Card 1: gráfico de barras verticais
+  h+='<div class="card"><h3>Distribuição da Jornada</h3><div class="d">Classificação por progresso e acesso</div>';
+  h+='<div style="background:var(--chart-bg);border-radius:14px;padding:24px 16px 12px;margin-top:14px"><div style="display:flex;align-items:flex-end;gap:10px;height:180px">';
+  fEtapas.forEach((name,i)=>{
+    const q=fQtds[i], hh=Math.round(q/fMax*150), pc=total?q/total*100:0;
+    const tip='<div class=tt-title>'+name+'</div><div class=tt-row><span class=tt-label>Alunos:</span><span class=tt-value>'+fN(q)+'</span></div><div class=tt-row><span class=tt-label>% da base:</span><span class=tt-value>'+pc.toFixed(1)+'%</span></div>';
+    h+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:default" onmouseenter="showTip(event,\''+tip.replace(/'/g,'')+'\')" onmousemove="showTip(event,\''+tip.replace(/'/g,'')+'\')" onmouseleave="hideTip()">';
+    h+='<div style="font-size:11px;color:'+fCores[i]+';font-weight:700;font-family:JetBrains Mono">'+pc.toFixed(1)+'%</div>';
+    h+='<div style="width:100%;height:'+Math.max(hh,4)+'px;background:'+fCores[i]+';border-radius:6px 6px 0 0;transition:height .4s"></div>';
+    h+='</div>';
   });
+  h+='</div>';
+  h+='<div style="display:flex;gap:10px;margin-top:8px">';
+  fEtapas.forEach(name=>{h+='<div style="flex:1;text-align:center;font-size:10.5px;color:var(--t3);line-height:1.3">'+name+'</div>';});
+  h+='</div></div></div>';
+  // Card 2: Detalhamento com tags translúcidas
+  h+='<div class="card"><h3>Detalhamento</h3><div class="d">Quantidade e % por etapa</div>';
+  fEtapas.forEach((name,i)=>{
+    const q=fQtds[i], pc=total?q/total*100:0;
+    h+='<div class="ft-row"><span class="ft-tag" style="background:'+fBgs[i]+';color:'+fCores[i]+';font-weight:700;min-width:200px">'+name+'</span><span class="ft-qty">'+fN(q)+'</span><span class="ft-pct">'+rd(pc)+'%</span><div class="ft-track"><div class="ft-fill" style="width:'+pc.toFixed(1)+'%;background:'+fCores[i]+'"></div></div></div>';
+  });
+  h+='</div>';
   h+='</div>';
 
   // ── Perfil da Base (g2: produto + turma) ──
@@ -811,10 +836,10 @@ function renderEngajamentoCS(){
   let h='';
   // KPIs (modelo Bruno: 4 cards)
   h+='<div class="kpis kpis-vg">';
-  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Média Progresso</div><div class="kpi-v">'+fmtP(avgProg)+'</div><div class="kpi-s">média do curso</div></div>';
-  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Total Aulas (média)</div><div class="kpi-v">'+totalAulas+'</div><div class="kpi-s">disponíveis no curso</div></div>';
-  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">Aulas Assistidas (média)</div><div class="kpi-v">'+mediaAulas.toFixed(1).replace('.',',')+'</div><div class="kpi-s">de '+totalAulas+' disponíveis</div></div>';
-  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--orange),var(--gold))"></div><div class="kpi-l">Tempo Médio s/ Acesso</div><div class="kpi-v">'+avgInat+'<span style="font-size:18px;color:var(--t2)"> dias</span></div><div class="kpi-s">entre quem acessou</div></div>';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--teal),var(--green))"></div><div class="kpi-l">Média Progresso</div><div class="kpi-v" style="color:var(--teal)">'+fmtP(avgProg)+'</div></div>';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Total Aulas (média)</div><div class="kpi-v" style="color:var(--sky)">'+totalAulas+'</div></div>';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Aulas Assistidas (média)</div><div class="kpi-v" style="color:var(--accent)">'+mediaAulas.toFixed(1).replace('.',',')+'</div><div class="kpi-s">de '+totalAulas+' disponíveis</div></div>';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--gold),var(--orange))"></div><div class="kpi-l">Tempo Médio s/ Acesso</div><div class="kpi-v" style="color:var(--gold)">'+avgInat+' dias</div><div class="kpi-s">entre quem acessou</div></div>';
   h+='</div>';
 
   // Progresso & Aulas (barras verticais + horizontais — modelo Bruno)
@@ -2312,7 +2337,8 @@ function renderAtendimento(){
   h+='<div class="card" style="padding:18px 22px">';
   p.assuntos.forEach(a=>{
     if(a.n===0)return;
-    h+='<div style="display:flex;align-items:center;gap:12px;margin:10px 0">';
+    const tip='<div class=tt-title>'+a.emoji+' '+a.label+'</div><div class=tt-row><span class=tt-label>Conversas:</span><span class=tt-value>'+a.n+'</span></div><div class=tt-row><span class=tt-label>% do período:</span><span class=tt-value>'+a.pct.toFixed(1)+'%</span></div>';
+    h+='<div style="display:flex;align-items:center;gap:12px;margin:10px 0;cursor:default" onmouseenter="showTip(event,\''+tip.replace(/'/g,'')+'\')" onmousemove="showTip(event,\''+tip.replace(/'/g,'')+'\')" onmouseleave="hideTip()">';
     h+='<div style="width:200px;font-size:13px;color:var(--t1);font-weight:600">'+a.emoji+' '+a.label+'</div>';
     h+='<div style="flex:1;background:var(--track-bg);border-radius:8px;height:22px;overflow:hidden">';
     h+='<div style="height:100%;width:'+Math.max(2,a.pct).toFixed(1)+'%;background:'+a.cor+';display:flex;align-items:center;justify-content:flex-end;padding-right:10px;font-size:11px;color:#fff;font-weight:700;font-family:JetBrains Mono">'+a.pct.toFixed(1)+'%</div></div>';
@@ -2351,10 +2377,11 @@ function renderAtendimento(){
     p.ritmo.forEach(d=>{
       const hRec=max?Math.max(2,(d.rec/max)*180):0;
       const hEnv=max?Math.max(2,(d.env/max)*180):0;
-      h+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">';
+      const tipR='<div class=tt-title>📅 '+d.dia+'</div><div class=tt-row><span class=tt-label>Recebidas (aluno):</span><span class=tt-value>'+fN(d.rec)+'</span></div><div class=tt-row><span class=tt-label>Enviadas (TCS):</span><span class=tt-value>'+fN(d.env)+'</span></div><div class=tt-row><span class=tt-label>Total:</span><span class=tt-value>'+fN(d.rec+d.env)+'</span></div>';
+      h+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:default" onmouseenter="showTip(event,\''+tipR.replace(/'/g,'')+'\')" onmousemove="showTip(event,\''+tipR.replace(/'/g,'')+'\')" onmouseleave="hideTip()">';
       h+='<div style="display:flex;gap:3px;align-items:flex-end;height:180px">';
-      h+='<div style="width:14px;height:'+hRec+'px;background:var(--accent);border-radius:3px 3px 0 0" title="Recebidas: '+d.rec+'"></div>';
-      h+='<div style="width:14px;height:'+hEnv+'px;background:var(--teal);border-radius:3px 3px 0 0" title="Enviadas: '+d.env+'"></div>';
+      h+='<div style="width:14px;height:'+hRec+'px;background:var(--accent);border-radius:3px 3px 0 0"></div>';
+      h+='<div style="width:14px;height:'+hEnv+'px;background:var(--teal);border-radius:3px 3px 0 0"></div>';
       h+='</div>';
       h+='<div style="font-size:10px;color:var(--t3);font-family:JetBrains Mono">'+d.dia+'</div>';
       h+='</div>';
@@ -2374,8 +2401,9 @@ function renderAtendimento(){
       const v=p.heatmap[i];
       const alt=maxH?Math.max(3,(v/maxH)*110):3;
       const opacity=maxH?Math.max(.15,v/maxH):.15;
-      h+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">';
-      h+='<div style="width:100%;height:'+alt+'px;background:var(--accent);opacity:'+opacity.toFixed(2)+';border-radius:3px 3px 0 0" title="'+i+'h: '+v+' msgs"></div>';
+      const tipH='<div class=tt-title>🕒 '+(i<10?'0'+i:i)+'h00 — '+(i<10?'0'+i:i)+'h59</div><div class=tt-row><span class=tt-label>Mensagens:</span><span class=tt-value>'+fN(v)+'</span></div><div class=tt-row><span class=tt-label>% do pico:</span><span class=tt-value>'+(maxH?(100*v/maxH).toFixed(0):'0')+'%</span></div>';
+      h+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:default" onmouseenter="showTip(event,\''+tipH.replace(/'/g,'')+'\')" onmousemove="showTip(event,\''+tipH.replace(/'/g,'')+'\')" onmouseleave="hideTip()">';
+      h+='<div style="width:100%;height:'+alt+'px;background:var(--accent);opacity:'+opacity.toFixed(2)+';border-radius:3px 3px 0 0"></div>';
       h+='<div style="font-size:9px;color:var(--t3);font-family:JetBrains Mono">'+(i<10?'0'+i:i)+'</div>';
       h+='</div>';
     }
