@@ -2315,7 +2315,9 @@ function mergeAtendimentoFromServer(supa){
     risco:{label:'Risco / churn',emoji:'⚠️',cor:'#f87171'},
     tecnico:{label:'Suporte técnico',emoji:'🔧',cor:'#38bdf8'},
     dificuldade:{label:'Dificuldade / dúvida',emoji:'🆘',cor:'#fb923c'},
+    acesso:{label:'Acesso liberado',emoji:'🔓',cor:'#14b8a6'},
     engajamento_curso:{label:'Engajamento com curso',emoji:'🎓',cor:'#22d3ee'},
+    elogios:{label:'Elogios / satisfação',emoji:'👏',cor:'#fbbf24'},
     prova:{label:'Prova social / resultado',emoji:'⭐',cor:'#34d399'},
     compromisso:{label:'Compromisso / ativação',emoji:'💪',cor:'#8b7cf7'},
     comunidade:{label:'Comunidade / grupo',emoji:'👥',cor:'#a78bfa'},
@@ -2346,6 +2348,7 @@ function mergeAtendimentoFromServer(supa){
       disparos_por_aluno:parseFloat(p.disparos_por_aluno)||0,
       msgs_aluno:p.msgs_aluno||0,msgs_tcs:p.msgs_tcs||0,
       assuntos:enriqAssuntos(p.assuntos),
+      nuvem:Array.isArray(p.nuvem)?p.nuvem:[],
       desafio:p.desafio||{pct_mencionou:0,n_mencionou:0,pct_engajou:0,n_engajou:0},
       frases:p.frases||{},
       ritmo:Array.isArray(p.ritmo)?p.ritmo:null,
@@ -2498,7 +2501,7 @@ function renderAtendimento(){
 
   // === BLOCO Conversas por Assunto (hierárquico, 1 conv = 1 assunto) ===
   h+='<div class="sec">💬 Conversas por Assunto</div>';
-  h+='<div style="font-size:12px;color:var(--t3);margin:-10px 0 14px">Cada conversa é classificada pelo assunto dominante (prioridade: risco → técnico → dificuldade → prova → engajamento com curso → compromisso → comunidade → afetivo → outros).</div>';
+  h+='<div style="font-size:12px;color:var(--t3);margin:-10px 0 14px">Cada conversa é classificada pelo assunto dominante (prioridade: risco → técnico → dificuldade → acesso → prova → engajamento com curso → elogios → compromisso → comunidade → afetivo → outros).</div>';
   h+='<div class="card" style="padding:18px 22px">';
   // Ordena por % desc com "outros" no fim (idempotente caso o snapshot já venha enriquecido)
   const assuntosOrd = [...p.assuntos].filter(a=>a.n>0).sort((a,b)=>{
@@ -2523,10 +2526,10 @@ function renderAtendimento(){
   if(p.frases && Object.keys(p.frases).length){
     h+='<div class="sec">💭 Frases reais (anonimizadas)</div>';
     h+='<div class="ins-g">';
-    const ordemFrases=['risco','tecnico','dificuldade','engajamento_curso','prova','compromisso','comunidade','afetivo'];
-    const mapEmoji={risco:'⚠️',tecnico:'🔧',dificuldade:'🆘',engajamento_curso:'🎓',prova:'⭐',compromisso:'💪',comunidade:'👥',afetivo:'❤️'};
-    const mapLabel={risco:'Risco / churn',tecnico:'Suporte técnico',dificuldade:'Dificuldade',engajamento_curso:'Engajamento com curso',prova:'Prova social',compromisso:'Compromisso',comunidade:'Comunidade',afetivo:'Tom afetivo'};
-    const mapCor={risco:'w',tecnico:'',dificuldade:'',engajamento_curso:'ok',prova:'ok',compromisso:'ok',comunidade:'',afetivo:''};
+    const ordemFrases=['risco','tecnico','dificuldade','acesso','prova','engajamento_curso','elogios','compromisso','comunidade','afetivo'];
+    const mapEmoji={risco:'⚠️',tecnico:'🔧',dificuldade:'🆘',acesso:'🔓',engajamento_curso:'🎓',elogios:'👏',prova:'⭐',compromisso:'💪',comunidade:'👥',afetivo:'❤️'};
+    const mapLabel={risco:'Risco / churn',tecnico:'Suporte técnico',dificuldade:'Dificuldade',acesso:'Acesso liberado',engajamento_curso:'Engajamento com curso',elogios:'Elogios / satisfação',prova:'Prova social',compromisso:'Compromisso',comunidade:'Comunidade',afetivo:'Tom afetivo'};
+    const mapCor={risco:'w',tecnico:'',dificuldade:'',acesso:'ok',engajamento_curso:'ok',elogios:'ok',prova:'ok',compromisso:'ok',comunidade:'',afetivo:''};
     ordemFrases.forEach(k=>{
       if(!p.frases[k]||!p.frases[k].length)return;
       const cls='ins '+(mapCor[k]||'');
@@ -2538,6 +2541,26 @@ function renderAtendimento(){
       h+='</div>';
     });
     h+='</div>';
+  }
+
+  // === BLOCO Nuvem de palavras ===
+  if(p.nuvem && p.nuvem.length){
+    h+='<div class="sec">☁️ Nuvem de palavras</div>';
+    h+='<div class="card"><h3>Termos mais usados pelos alunos</h3><div class="d">O que mais aparece nas mensagens recebidas · '+p.label.toLowerCase()+'</div>';
+    const nuvMax=Math.max.apply(null,p.nuvem.map(x=>x.n));
+    const nuvMin=Math.min.apply(null,p.nuvem.map(x=>x.n));
+    const nuvCores=['#22d3ee','#34d399','#8b7cf7','#f472b6','#fbbf24','#38bdf8','#fb923c','#a78bfa'];
+    h+='<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 16px;padding:24px 10px;line-height:1.25">';
+    p.nuvem.forEach((x,i)=>{
+      const t=nuvMax>nuvMin?(x.n-nuvMin)/(nuvMax-nuvMin):1;
+      const fs=(13+t*30).toFixed(0);
+      const op=(0.55+t*0.45).toFixed(2);
+      const peso=600+Math.round(t*200);
+      const cor=nuvCores[i%nuvCores.length];
+      const tip='<div class=tt-title>☁️ '+x.w+'</div><div class=tt-row><span class=tt-label>Aparições:</span><span class=tt-value>'+fN(x.n)+'</span></div>';
+      h+='<span style="font-size:'+fs+'px;color:'+cor+';opacity:'+op+';font-weight:'+peso+';cursor:default" onmouseenter="showTip(event,\''+tip.replace(/'/g,'')+'\')" onmousemove="showTip(event,\''+tip.replace(/'/g,'')+'\')" onmouseleave="hideTip()">'+x.w+'</span>';
+    });
+    h+='</div></div>';
   }
 
   // === BLOCO Ritmo (gráfico de barras) ===

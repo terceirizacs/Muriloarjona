@@ -1,9 +1,14 @@
 -- ============================================================
--- Função: public.cs_resumo_atendimento  (v4)
--- Mudanças v4:
---   • Novas categorias de assunto: 'engajamento_curso' e 'comunidade'
---   • Hierarquia: risco → tecnico → dificuldade → prova → engajamento_curso
---     → compromisso → comunidade → afetivo → outros
+-- Função: public.cs_resumo_atendimento  (v5)
+-- Mudanças v5:
+--   • Nova categoria 'acesso' (acesso liberado/funcionando — antes caía em 'prova')
+--   • Nova categoria 'elogios' (satisfação/elogio ao curso)
+--   • 'prova' agora é só RESULTADO real (arremate/venda/lucro), não acesso
+--   • Nuvem de palavras por período (campo 'nuvem' em cada bucket: top 40 palavras)
+--   • Hierarquia: risco → tecnico → dificuldade → acesso → prova →
+--     engajamento_curso → elogios → compromisso → comunidade → afetivo → outros
+-- v4:
+--   • Categorias 'engajamento_curso' e 'comunidade'
 -- v3:
 --   • RESPOSTAS = conversas únicas com msg do aluno no período
 --   • Parâmetros p_custom_start, p_custom_end (opcional, retorna bucket 'custom')
@@ -126,8 +131,10 @@ classif AS (
       WHEN texto ~* '\m(cancelar|reembolso|desistir|n[ãa]o quero mais|estornar|me devolv|me arrepend)' THEN 'risco'
       WHEN texto ~* '\m(plataforma|hotmart|n[ãa]o consigo acessar|n[ãa]o abre|n[ãa]o carrega|login|senha|v[ií]deo n[ãa]o|aula n[ãa]o (abre|carrega)|youtube|aplicativo)' THEN 'tecnico'
       WHEN texto ~* '\m(n[ãa]o entendi|t[oô] perdid|tenho d[uú]vida|me ajuda|dif[ií]cil|n[ãa]o sei como|preciso de ajuda|complicado)' THEN 'dificuldade'
-      WHEN texto ~* '\m(consegui|arrematei|arremat|fechei|primeira venda|primeiro im[oó]vel|deu certo|funcionou|resultado|fechad[ao]|venda)' THEN 'prova'
-      WHEN texto ~* '\m(assisti|assistindo|comecei|come[çc]ando|j[aá] comecei|estou (assistindo|fazendo|estudando|vendo)|t[oô] (assistindo|fazendo|estudando)|m[oó]dulo|fiz a (aula|tarefa|atividade))' THEN 'engajamento_curso'
+      WHEN texto ~* '\m(consegui acessar|deu certo (o|os) acesso|deu certo o login|acesso (liberad|funcionou|deu certo|certo|ok)|j[aá] (acessei|entrei|consegui acessar)|liberaram (o|meu) acesso|recebi (o|meu) acesso|j[aá] (t[oô]|estou) (dentro|na plataforma|na [aá]rea)|entrei na (plataforma|[aá]rea|conta|aula))' THEN 'acesso'
+      WHEN texto ~* '\m(arrematei|arremat|fechei|primeira venda|primeiro im[oó]vel|deu lucro|lucrei|comiss[ãa]o|consegui (arrematar|vender|fechar|comprar|meu primeiro)|fechad[ao]|vendi|venda|resultado|ganhei o leil[ãa]o|lance vencedor|primeiro lance)' THEN 'prova'
+      WHEN texto ~* '\m(assisti|assistindo|comecei|come[çc]ando|j[aá] comecei|estou (assistindo|fazendo|estudando|vendo)|t[oô] (assistindo|fazendo|estudando)|m[oó]dulo|fiz a (aula|tarefa|atividade)|fazendo os? curso|t[oô] no curso)' THEN 'engajamento_curso'
+      WHEN texto ~* '\m(amei|adorei|excelente|maravilhos|gostei|muito bom|top demais|sensacional|incr[ií]vel|melhor curso|melhor (conte[uú]do|aula|mentor)|recomendo|did[aá]tic|conte[uú]do (bom|[óo]timo|excelente|incr[ií]vel)|parab[ée]ns|show de bola|nota (10|dez)|surpreend|amando|muito (top|show))' THEN 'elogios'
       WHEN texto ~* '\m(vou (fazer|come[çc]ar|tentar|seguir|estudar|assistir|acessar|voltar)|me comprometo|aceito o desafio|t[oô] dentro|partiu|bora|vamo)' THEN 'compromisso'
       WHEN texto ~* '\m(grupo|telegram|discord|comunidade|whats(app)? do)' THEN 'comunidade'
       WHEN texto ~* '\m(gratid[ãa]o|aben[çc]oad|obrigad|grat[oa]|familia|filh|m[ãa]e|esposa|marido|sa[uú]de|hospitalizad|viagem|viajando|ocupad|luto|doente)' THEN 'afetivo'
@@ -159,6 +166,43 @@ assuntos_agg AS (
   SELECT bucket,
     jsonb_agg(jsonb_build_object('cat', categoria, 'n', n, 'pct', pct) ORDER BY n DESC) AS assuntos
   FROM assuntos_raw GROUP BY bucket
+),
+-- ===== Nuvem de palavras por bucket (top 40 termos do aluno) =====
+nuvem_tokens AS (
+  SELECT cb.bucket, w.word
+  FROM classif_buckets cb
+  JOIN texto_aluno ta ON ta.conversa_id = cb.conversa_id
+  CROSS JOIN LATERAL regexp_split_to_table(lower(ta.texto), '[^a-zà-ÿ]+') AS w(word)
+  WHERE length(w.word) >= 4
+    AND w.word NOT IN (
+      'para','pra','pro','com','uma','não','nao','mas','por','dos','das','como','mais','isso','esse','essa',
+      'são','sao','foi','ser','tem','ter','sua','seu','meu','minha','minhas','meus','suas','seus','ele','ela',
+      'eles','elas','aqui','então','entao','muito','muita','muitos','muitas','bem','ainda','sim','num','numa',
+      'nas','nos','até','ate','depois','antes','sobre','entre','sem','quando','onde','quem','qual','quais',
+      'porque','também','tambem','sempre','nunca','estava','estavam','sendo','você','voce','vcs','assim','cada',
+      'pois','desde','vez','vezes','tipo','nada','algo','outro','outra','outros','outras','mesmo','mesma','aquilo',
+      'esses','essas','aquele','aquela','tudo','todo','toda','todos','todas','dele','dela','deles','delas','este',
+      'esta','estes','estas','estou','estamos','gente','coisa','coisas','bom','dia','boa','tarde','noite',
+      'obrigado','obrigada','brigado','valeu','beleza','joia','ola','olá','kkkk','kkkkk','kkkkkk','kkkkkkk',
+      'rsrs','haha','hahaha','vamos','vamo','agora','hoje','ontem','pode','posso','iria','fica','ficar','quero',
+      'queria','acho','sei','tava','nossa','vai','vou','está','estão','estao','tenho','tinha','seria','isto',
+      -- nomes próprios / persona da CS e do creator (adicionar por cliente quando necessário)
+      'pamela','murilo'
+    )
+),
+nuvem_ranked AS (
+  SELECT bucket, word, COUNT(*) AS n,
+    ROW_NUMBER() OVER (PARTITION BY bucket ORDER BY COUNT(*) DESC, word) AS rn
+  FROM nuvem_tokens
+  GROUP BY bucket, word
+  HAVING COUNT(*) >= 2
+),
+nuvem_agg AS (
+  SELECT bucket,
+    jsonb_agg(jsonb_build_object('w', word, 'n', n) ORDER BY n DESC) AS nuvem
+  FROM nuvem_ranked
+  WHERE rn <= 40
+  GROUP BY bucket
 ),
 desafio_agg AS (
   SELECT bucket,
@@ -335,6 +379,7 @@ SELECT jsonb_build_object(
       'msgs_aluno', COALESCE(m.msgs_aluno, 0),
       'msgs_tcs', COALESCE(m.msgs_tcs, 0),
       'assuntos', COALESCE(a.assuntos, '[]'::jsonb),
+      'nuvem', COALESCE(nv.nuvem, '[]'::jsonb),
       'desafio', COALESCE(d.desafio, '{}'::jsonb),
       'frases', COALESCE(f.frases, '{}'::jsonb),
       'ritmo', COALESCE(rt.r, '[]'::jsonb),
@@ -345,6 +390,7 @@ SELECT jsonb_build_object(
     LEFT JOIN msg_agg m ON m.bucket = pm.bucket
     LEFT JOIN respostas_agg r ON r.bucket = pm.bucket
     LEFT JOIN assuntos_agg a ON a.bucket = pm.bucket
+    LEFT JOIN nuvem_agg nv ON nv.bucket = pm.bucket
     LEFT JOIN desafio_agg d ON d.bucket = pm.bucket
     LEFT JOIN frases_agg f ON f.bucket = pm.bucket
     LEFT JOIN ritmo_agg rt ON rt.bucket = pm.bucket
@@ -356,4 +402,4 @@ $func$;
 GRANT EXECUTE ON FUNCTION public.cs_resumo_atendimento(uuid, date, int, date, date) TO anon, authenticated;
 
 COMMENT ON FUNCTION public.cs_resumo_atendimento IS
-'v3 — Respostas = conversas únicas com msg do aluno no período (alinhado dash operacional); aceita p_custom_start/p_custom_end pra retornar bucket "custom" sob demanda.';
+'v5 — Categorias acesso + elogios; prova = resultado real; nuvem de palavras por período. Respostas = conversas únicas com msg do aluno no período; aceita p_custom_start/p_custom_end pra retornar bucket "custom".';
