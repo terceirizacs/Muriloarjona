@@ -2315,20 +2315,26 @@ function mergeAtendimentoFromServer(supa){
     risco:{label:'Risco / churn',emoji:'⚠️',cor:'#f87171'},
     tecnico:{label:'Suporte técnico',emoji:'🔧',cor:'#38bdf8'},
     dificuldade:{label:'Dificuldade / dúvida',emoji:'🆘',cor:'#fb923c'},
+    engajamento_curso:{label:'Engajamento com curso',emoji:'🎓',cor:'#22d3ee'},
     prova:{label:'Prova social / resultado',emoji:'⭐',cor:'#34d399'},
     compromisso:{label:'Compromisso / ativação',emoji:'💪',cor:'#8b7cf7'},
+    comunidade:{label:'Comunidade / grupo',emoji:'👥',cor:'#a78bfa'},
     afetivo:{label:'Tom afetivo / vida pessoal',emoji:'❤️',cor:'#f472b6'},
     outros:{label:'Outros / saudações',emoji:'💬',cor:'#475569'}
   };
   function enriqAssuntos(arr){
     if(!arr||!arr.length) return [];
-    // Ordena por prioridade hierárquica (risco primeiro), mantendo apenas com n>0
-    const ord=['risco','tecnico','dificuldade','prova','compromisso','afetivo','outros'];
-    const byCat={}; arr.forEach(a=>{byCat[a.cat]=a;});
-    return ord.filter(c=>byCat[c]&&byCat[c].n>0).map(c=>{
-      const a=byCat[c], m=ASSUNTO_META[c]||{label:c,emoji:'•',cor:'#94a3b8'};
-      return {cat:c,label:m.label,emoji:m.emoji,cor:m.cor,n:a.n,pct:typeof a.pct==='number'?a.pct:parseFloat(a.pct)||0};
+    // Enriquece + ordena por % desc, com "outros" sempre no fim
+    const enriquecidos = arr.filter(a=>a.n>0).map(a=>{
+      const m=ASSUNTO_META[a.cat]||{label:a.cat,emoji:'•',cor:'#94a3b8'};
+      return {cat:a.cat,label:m.label,emoji:m.emoji,cor:m.cor,n:a.n,pct:typeof a.pct==='number'?a.pct:parseFloat(a.pct)||0};
     });
+    enriquecidos.sort((a,b)=>{
+      if(a.cat==='outros') return 1;
+      if(b.cat==='outros') return -1;
+      return b.pct - a.pct;
+    });
+    return enriquecidos;
   }
   function adaptaPeriodo(p){
     if(!p) return null;
@@ -2494,13 +2500,20 @@ function renderAtendimento(){
   h+='<div class="sec">💬 Conversas por Assunto</div>';
   h+='<div style="font-size:12px;color:var(--t3);margin:-10px 0 14px">Cada conversa é classificada pelo assunto dominante (prioridade: risco → técnico → dificuldade → prova → compromisso → afetivo → outros).</div>';
   h+='<div class="card" style="padding:18px 22px">';
-  p.assuntos.forEach(a=>{
-    if(a.n===0)return;
+  // Ordena por % desc com "outros" no fim (idempotente caso o snapshot já venha enriquecido)
+  const assuntosOrd = [...p.assuntos].filter(a=>a.n>0).sort((a,b)=>{
+    if(a.cat==='outros') return 1;
+    if(b.cat==='outros') return -1;
+    return b.pct - a.pct;
+  });
+  assuntosOrd.forEach(a=>{
     const tip='<div class=tt-title>'+a.emoji+' '+a.label+'</div><div class=tt-row><span class=tt-label>Conversas:</span><span class=tt-value>'+a.n+'</span></div><div class=tt-row><span class=tt-label>% do período:</span><span class=tt-value>'+a.pct.toFixed(1)+'%</span></div>';
     h+='<div style="display:flex;align-items:center;gap:12px;margin:10px 0;cursor:default" onmouseenter="showTip(event,\''+tip.replace(/'/g,'')+'\')" onmousemove="showTip(event,\''+tip.replace(/'/g,'')+'\')" onmouseleave="hideTip()">';
     h+='<div style="width:200px;font-size:13px;color:var(--t1);font-weight:600">'+a.emoji+' '+a.label+'</div>';
     h+='<div style="flex:1;background:var(--track-bg);border-radius:8px;height:22px;overflow:hidden">';
-    h+='<div style="height:100%;width:'+Math.max(2,a.pct).toFixed(1)+'%;background:'+a.cor+';display:flex;align-items:center;justify-content:flex-end;padding-right:10px;font-size:11px;color:#fff;font-weight:700;font-family:JetBrains Mono">'+a.pct.toFixed(1)+'%</div></div>';
+    // Garante largura mínima de 32px na barra pra caber % mesmo em valores baixos (1-3%)
+    const minPct = Math.max(a.pct, 3);
+    h+='<div style="height:100%;width:'+minPct.toFixed(1)+'%;min-width:46px;background:'+a.cor+';display:flex;align-items:center;justify-content:flex-end;padding-right:10px;font-size:11px;color:#fff;font-weight:700;font-family:JetBrains Mono">'+a.pct.toFixed(1)+'%</div></div>';
     h+='<div style="width:90px;text-align:right;font-size:12px;color:var(--t3);font-family:JetBrains Mono">'+a.n+' conv.</div>';
     h+='</div>';
   });
@@ -2510,10 +2523,10 @@ function renderAtendimento(){
   if(p.frases && Object.keys(p.frases).length){
     h+='<div class="sec">💭 Frases reais (anonimizadas)</div>';
     h+='<div class="ins-g">';
-    const ordemFrases=['risco','tecnico','dificuldade','prova','compromisso','afetivo'];
-    const mapEmoji={risco:'⚠️',tecnico:'🔧',dificuldade:'🆘',prova:'⭐',compromisso:'💪',afetivo:'❤️'};
-    const mapLabel={risco:'Risco / churn',tecnico:'Suporte técnico',dificuldade:'Dificuldade',prova:'Prova social',compromisso:'Compromisso',afetivo:'Tom afetivo'};
-    const mapCor={risco:'w',tecnico:'',dificuldade:'',prova:'ok',compromisso:'ok',afetivo:''};
+    const ordemFrases=['risco','tecnico','dificuldade','engajamento_curso','prova','compromisso','comunidade','afetivo'];
+    const mapEmoji={risco:'⚠️',tecnico:'🔧',dificuldade:'🆘',engajamento_curso:'🎓',prova:'⭐',compromisso:'💪',comunidade:'👥',afetivo:'❤️'};
+    const mapLabel={risco:'Risco / churn',tecnico:'Suporte técnico',dificuldade:'Dificuldade',engajamento_curso:'Engajamento com curso',prova:'Prova social',compromisso:'Compromisso',comunidade:'Comunidade',afetivo:'Tom afetivo'};
+    const mapCor={risco:'w',tecnico:'',dificuldade:'',engajamento_curso:'ok',prova:'ok',compromisso:'ok',comunidade:'',afetivo:''};
     ordemFrases.forEach(k=>{
       if(!p.frases[k]||!p.frases[k].length)return;
       const cls='ins '+(mapCor[k]||'');
