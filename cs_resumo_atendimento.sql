@@ -1,5 +1,12 @@
 -- ============================================================
--- Função: public.cs_resumo_atendimento  (v5)
+-- Função: public.cs_resumo_atendimento  (v6)
+-- Mudanças v6:
+--   • PROVA social = resultado REAL (arremate/leilão/primeiro resultado). Removido 'venda'/'resultado'
+--     soltos: alunos corretores têm auto-resposta com "venda/imóveis" e o desafio se chama
+--     "Aceleração dos Resultados" → causava falso positivo em massa.
+--   • ELOGIOS ampliado e promovido na hierarquia (antes era engolido por engajamento/acesso).
+--   • Hierarquia: risco → tecnico → dificuldade → prova → elogios → acesso →
+--     engajamento_curso → compromisso → comunidade → afetivo → outros
 -- Mudanças v5:
 --   • Nova categoria 'acesso' (acesso liberado/funcionando — antes caía em 'prova')
 --   • Nova categoria 'elogios' (satisfação/elogio ao curso)
@@ -129,12 +136,14 @@ classif AS (
   SELECT conversa_id, ult_msg, texto,
     CASE
       WHEN texto ~* '\m(cancelar|reembolso|desistir|n[ãa]o quero mais|estornar|me devolv|me arrepend)' THEN 'risco'
-      WHEN texto ~* '\m(plataforma|hotmart|n[ãa]o consigo acessar|n[ãa]o abre|n[ãa]o carrega|login|senha|v[ií]deo n[ãa]o|aula n[ãa]o (abre|carrega)|youtube|aplicativo)' THEN 'tecnico'
+      WHEN texto ~* '\m(plataforma|hotmart|n[ãa]o consigo acessar|n[ãa]o consegui acessar|ainda n[ãa]o (consigo|consegui) acessar|n[ãa]o consigo entrar|sem acesso|n[ãa]o recebi (o |meu )?acesso|n[ãa]o abre|n[ãa]o carrega|login|senha|v[ií]deo n[ãa]o|aula n[ãa]o (abre|carrega)|youtube|aplicativo)' THEN 'tecnico'
       WHEN texto ~* '\m(n[ãa]o entendi|t[oô] perdid|tenho d[uú]vida|me ajuda|dif[ií]cil|n[ãa]o sei como|preciso de ajuda|complicado)' THEN 'dificuldade'
+      -- PROVA = resultado real (arremate/leilão/primeiro resultado). NÃO usar 'venda'/'resultado' soltos:
+      -- alunos são corretores (auto-resposta com "venda/imóveis") e o desafio se chama "Aceleração dos Resultados".
+      WHEN texto ~* '\m(arrematei|consegui arrematar|arrematar meu primeiro|minha primeira arremata|primeira arremata(ç|c)[ãa]o|ganhei (o |um |meu )?leil[ãa]o|lance vencedor|tive (meu )?primeiro resultado|j[aá] tive resultado|primeiro resultado com|consegui meu primeiro (im[oó]vel|resultado|lance)|fechei meu primeiro (neg[oó]cio|im[oó]vel)|recuperei o investimento)' THEN 'prova'
+      WHEN texto ~* '\m(amei|adorei|adorando|amando|maravilhos|sensacional|incr[ií]vel|melhor (curso|conte[uú]do|aula|professor|mentor|investimento|decis[ãa]o)|gostei (muito|demais|bastante|do|da|de|desse|dessa)|gostando (muito|demais|do|da|de)|muito bom|t[aá] (sendo )?[óo]tim[oa]|content[ea] (com|demais)|satisfeit[oa]|recomendo|did[aá]tic|vale a pena|valeu a pena|mudou (a |minha )vida|ajud(ou|ando) (muito|demais|bastante)|aprendendo (muito|bastante|demais)|conte[uú]do (bom|[óo]timo|rico|incr[ií]vel|excelente|maravilh)|(curso|aula|m[eé]todo|conte[uú]do) (excelente|[óo]tim[oa]|maravilh|incr[ií]vel|sensacional)|parab[ée]ns|nota (10|dez)|amo (o |as |esse |essa )?(curso|aula|conte|m[eé]todo)|show de bola)' THEN 'elogios'
       WHEN texto ~* '\m(consegui acessar|deu certo (o|os) acesso|deu certo o login|acesso (liberad|funcionou|deu certo|certo|ok)|j[aá] (acessei|entrei|consegui acessar)|liberaram (o|meu) acesso|recebi (o|meu) acesso|j[aá] (t[oô]|estou) (dentro|na plataforma|na [aá]rea)|entrei na (plataforma|[aá]rea|conta|aula))' THEN 'acesso'
-      WHEN texto ~* '\m(arrematei|arremat|fechei|primeira venda|primeiro im[oó]vel|deu lucro|lucrei|comiss[ãa]o|consegui (arrematar|vender|fechar|comprar|meu primeiro)|fechad[ao]|vendi|venda|resultado|ganhei o leil[ãa]o|lance vencedor|primeiro lance)' THEN 'prova'
       WHEN texto ~* '\m(assisti|assistindo|comecei|come[çc]ando|j[aá] comecei|estou (assistindo|fazendo|estudando|vendo)|t[oô] (assistindo|fazendo|estudando)|m[oó]dulo|fiz a (aula|tarefa|atividade)|fazendo os? curso|t[oô] no curso)' THEN 'engajamento_curso'
-      WHEN texto ~* '\m(amei|adorei|excelente|maravilhos|gostei|muito bom|top demais|sensacional|incr[ií]vel|melhor curso|melhor (conte[uú]do|aula|mentor)|recomendo|did[aá]tic|conte[uú]do (bom|[óo]timo|excelente|incr[ií]vel)|parab[ée]ns|show de bola|nota (10|dez)|surpreend|amando|muito (top|show))' THEN 'elogios'
       WHEN texto ~* '\m(vou (fazer|come[çc]ar|tentar|seguir|estudar|assistir|acessar|voltar)|me comprometo|aceito o desafio|t[oô] dentro|partiu|bora|vamo)' THEN 'compromisso'
       WHEN texto ~* '\m(grupo|telegram|discord|comunidade|whats(app)? do)' THEN 'comunidade'
       WHEN texto ~* '\m(gratid[ãa]o|aben[çc]oad|obrigad|grat[oa]|familia|filh|m[ãa]e|esposa|marido|sa[uú]de|hospitalizad|viagem|viajando|ocupad|luto|doente)' THEN 'afetivo'
@@ -262,16 +271,35 @@ heatmap_agg AS (
      LEFT JOIN (SELECT h, n FROM heatmap_by_bucket WHERE bucket = ob.bucket) n2 ON n2.h = g.h) AS arr
   FROM (SELECT DISTINCT bucket FROM heatmap_by_bucket) ob
 ),
-frases_raw AS (
-  SELECT DISTINCT ON (m.conversa_id, cb.categoria, cb.bucket) m.content, cb.categoria, cb.bucket
+-- Classificação NO NÍVEL DA MENSAGEM (mesma regra) — pra escolher uma frase que de fato
+-- exibe o sinal da categoria (não uma msg qualquer/auto-resposta da conversa).
+msg_cat AS (
+  SELECT m.conversa_id, m.content,
+    CASE
+      WHEN m.content ~* '\m(cancelar|reembolso|desistir|n[ãa]o quero mais|estornar|me devolv|me arrepend)' THEN 'risco'
+      WHEN m.content ~* '\m(plataforma|hotmart|n[ãa]o consigo acessar|n[ãa]o consegui acessar|ainda n[ãa]o (consigo|consegui) acessar|n[ãa]o consigo entrar|sem acesso|n[ãa]o recebi (o |meu )?acesso|n[ãa]o abre|n[ãa]o carrega|login|senha|v[ií]deo n[ãa]o|aula n[ãa]o (abre|carrega)|youtube|aplicativo)' THEN 'tecnico'
+      WHEN m.content ~* '\m(n[ãa]o entendi|t[oô] perdid|tenho d[uú]vida|me ajuda|dif[ií]cil|n[ãa]o sei como|preciso de ajuda|complicado)' THEN 'dificuldade'
+      WHEN m.content ~* '\m(arrematei|consegui arrematar|arrematar meu primeiro|minha primeira arremata|primeira arremata(ç|c)[ãa]o|ganhei (o |um |meu )?leil[ãa]o|lance vencedor|tive (meu )?primeiro resultado|j[aá] tive resultado|primeiro resultado com|consegui meu primeiro (im[oó]vel|resultado|lance)|fechei meu primeiro (neg[oó]cio|im[oó]vel)|recuperei o investimento)' THEN 'prova'
+      WHEN m.content ~* '\m(amei|adorei|adorando|amando|maravilhos|sensacional|incr[ií]vel|melhor (curso|conte[uú]do|aula|professor|mentor|investimento|decis[ãa]o)|gostei (muito|demais|bastante|do|da|de|desse|dessa)|gostando (muito|demais|do|da|de)|muito bom|t[aá] (sendo )?[óo]tim[oa]|content[ea] (com|demais)|satisfeit[oa]|recomendo|did[aá]tic|vale a pena|valeu a pena|mudou (a |minha )vida|ajud(ou|ando) (muito|demais|bastante)|aprendendo (muito|bastante|demais)|conte[uú]do (bom|[óo]timo|rico|incr[ií]vel|excelente|maravilh)|(curso|aula|m[eé]todo|conte[uú]do) (excelente|[óo]tim[oa]|maravilh|incr[ií]vel|sensacional)|parab[ée]ns|nota (10|dez)|amo (o |as |esse |essa )?(curso|aula|conte|m[eé]todo)|show de bola)' THEN 'elogios'
+      WHEN m.content ~* '\m(consegui acessar|deu certo (o|os) acesso|deu certo o login|acesso (liberad|funcionou|deu certo|certo|ok)|j[aá] (acessei|entrei|consegui acessar)|liberaram (o|meu) acesso|recebi (o|meu) acesso|j[aá] (t[oô]|estou) (dentro|na plataforma|na [aá]rea)|entrei na (plataforma|[aá]rea|conta|aula))' THEN 'acesso'
+      WHEN m.content ~* '\m(assisti|assistindo|comecei|come[çc]ando|j[aá] comecei|estou (assistindo|fazendo|estudando|vendo)|t[oô] (assistindo|fazendo|estudando)|m[oó]dulo|fiz a (aula|tarefa|atividade)|fazendo os? curso|t[oô] no curso)' THEN 'engajamento_curso'
+      WHEN m.content ~* '\m(vou (fazer|come[çc]ar|tentar|seguir|estudar|assistir|acessar|voltar)|me comprometo|aceito o desafio|t[oô] dentro|partiu|bora|vamo)' THEN 'compromisso'
+      WHEN m.content ~* '\m(grupo|telegram|discord|comunidade|whats(app)? do)' THEN 'comunidade'
+      WHEN m.content ~* '\m(gratid[ãa]o|aben[çc]oad|obrigad|grat[oa]|familia|filh|m[ãa]e|esposa|marido|sa[uú]de|hospitalizad|viagem|viajando|ocupad|luto|doente)' THEN 'afetivo'
+      ELSE 'outros'
+    END AS mcat
   FROM msgs m
-  JOIN classif_buckets cb ON cb.conversa_id = m.conversa_id
-  WHERE m.message_type=0 AND m.private=false
-    AND m.content IS NOT NULL
-    AND LENGTH(m.content) BETWEEN 30 AND 250
-    AND cb.bucket IN ('d7','d8_14','mes_fechado','custom')
+  WHERE m.message_type=0 AND m.private=false AND m.content IS NOT NULL
+    AND LENGTH(m.content) BETWEEN 25 AND 250
+    AND m.content !~* '(agradec(emos|o) (seu|sua) (contato|mensagem))|(n[ãa]o (estamos|estou|estarei) dispon[ií]ve)|(responderemos|retornarei|retorno em breve|assim que poss[ií]vel)|(deixe sua mensagem)|(em breve (envio|retorno))|(hor[áa]rio de atendimento)|(seja (muito )?bem.?vindo)|(sou (corretor|corretora|consultor|consultora|especialista))|(creci)|(setor de vendas)|(central de vendas)|(plantão)'
+)
+frases_raw AS (
+  -- só pega frases cuja PRÓPRIA mensagem exibe o sinal da categoria da conversa
+  SELECT DISTINCT ON (mc.conversa_id, cb.categoria, cb.bucket) mc.content, cb.categoria, cb.bucket
+  FROM msg_cat mc
+  JOIN classif_buckets cb ON cb.conversa_id = mc.conversa_id AND cb.categoria = mc.mcat
+  WHERE cb.bucket IN ('d7','d8_14','mes_fechado','custom')
     AND cb.categoria <> 'outros'
-    AND m.content !~* '(agradec(emos|o) (seu|sua) (contato|mensagem))|(n[ãa]o estamos dispon[ií]veis)|(responderemos assim que)|(deixe sua mensagem que logo retorno)|(em breve envio)'
 ),
 frases_ranked AS (
   SELECT content, categoria, bucket,
