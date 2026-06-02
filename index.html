@@ -2257,37 +2257,47 @@ let ATEND_PERIODO_ATUAL='d7';
 let ATEND_DATA_DE='';
 let ATEND_DATA_ATE='';
 
+async function fetchAtendimentoCustom(de, ate){
+  const url = API_URL + '?atend_de=' + encodeURIComponent(de) + '&atend_ate=' + encodeURIComponent(ate);
+  const r = await fetch(url, {cache:'no-store'});
+  if(!r.ok) throw new Error('GAS retornou '+r.status);
+  return await r.json();
+}
+
 function aplicarFiltroDataAtend(){
   const de=document.getElementById('atendDataDe').value;
   const ate=document.getElementById('atendDataAte').value;
   if(!de || !ate){alert('Selecione data inicial e final');return;}
   if(de>ate){alert('Data inicial maior que final');return;}
   ATEND_DATA_DE=de; ATEND_DATA_ATE=ate;
-  // Por enquanto, sem integração GAS+Supabase ativa, marcamos o período custom como aviso
   const fmt=s=>{const[y,m,d]=s.split('-');return d+'/'+m+'/'+y.slice(2);};
+  // Loading state
   ATEND_SNAPSHOT.periodos.custom={
-    label:fmt(de)+' a '+fmt(ate), sublabel:'Filtro customizado',
+    label:fmt(de)+' a '+fmt(ate), sublabel:'Carregando dados…',
     disparos:0, respostas:0, taxa_resp:0,
     alunos_atendidos:0, disparos_por_aluno:0,
     msgs_aluno:0, msgs_tcs:0,
     assuntos:[], desafio:{pct_mencionou:0,n_mencionou:0,pct_engajou:0,n_engajou:0},
     frases:{}, ritmo:null, heatmap:null,
-    observacao:'Filtro customizado requer integração GAS↔Supabase ativa (consulta sob demanda). Quando o GAS estiver plugado, esse filtro vai chamar o Supabase com o intervalo escolhido e popular automaticamente. Por enquanto use os 3 períodos fixos.'
+    observacao:'⏳ Buscando dados do Supabase…'
   };
   ATEND_PERIODO_ATUAL='custom';
-  // Se houver função plugada pra buscar do GAS com params, chama
-  if(typeof fetchAtendimentoCustom==='function'){
-    fetchAtendimentoCustom(de, ate).then(data=>{
-      if(data && typeof mergeAtendimentoFromServer==='function'){
-        // Renomeia a chave 'custom' antes do merge
-        if(data.periodos && data.periodos.custom){
-          ATEND_SNAPSHOT.periodos.custom = data.periodos.custom;
-          renderAtendimento();
-        }
-      }
-    }).catch(e=>console.warn('Filtro custom falhou:',e));
-  }
   renderAtendimento();
+  // Fetch real do GAS+Supabase
+  fetchAtendimentoCustom(de, ate).then(data=>{
+    if(data && data.error){
+      ATEND_SNAPSHOT.periodos.custom.observacao = '❌ Erro: '+data.error;
+    } else if(data && data.atendimento_custom){
+      mergeAtendimentoFromServer(data.atendimento_custom);
+    } else {
+      ATEND_SNAPSHOT.periodos.custom.observacao = '⚠️ Resposta vazia do servidor — verifica se o GAS foi atualizado com o código novo e redeployado.';
+    }
+    renderAtendimento();
+  }).catch(e=>{
+    console.warn('Filtro custom falhou:',e);
+    ATEND_SNAPSHOT.periodos.custom.observacao = '❌ Erro: '+e.message+' — verifica se o GAS foi atualizado com o código novo (doGet com atend_de/atend_ate) e redeployado.';
+    renderAtendimento();
+  });
 }
 
 function limparFiltroDataAtend(){
@@ -2370,6 +2380,7 @@ function mergeAtendimentoFromServer(supa){
   if(P.d8_14)      ATEND_SNAPSHOT.periodos.d8_14 = adaptaPeriodo(P.d8_14);
   // SQL devolve "mes_fechado", o frontend usa chave "mai"
   if(P.mes_fechado) ATEND_SNAPSHOT.periodos.mai  = adaptaPeriodo(P.mes_fechado);
+  if(P.custom)     ATEND_SNAPSHOT.periodos.custom = adaptaPeriodo(P.custom);
   // Re-renderiza se a aba já está visível
   if(typeof renderAtendimento==='function'){
     const ativa=document.getElementById('tab-atendimento');
