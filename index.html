@@ -489,6 +489,11 @@ function aplicarDados(D){
       buildMS('fFunilCS',CS_FUNIS);
     }
 
+    // Atendimento TCS — se o GAS trouxer dados do Supabase, sobrescreve snapshot estático
+    if(D.atendimento && typeof mergeAtendimentoFromServer==='function'){
+      try{mergeAtendimentoFromServer(D.atendimento);}catch(e){console.warn('merge atend falhou:',e);}
+    }
+
     // Build merged ROWS: FPRO + trilha data by email
     const trilhaMap=new Map();
     TRILHA_DATA.forEach(t=>{
@@ -2248,6 +2253,86 @@ const ATEND_SNAPSHOT={
 };
 
 let ATEND_PERIODO_ATUAL='d7';
+
+// Mescla o JSON vindo do Supabase (via GAS) com o ATEND_SNAPSHOT.
+// Mapeia labels/emojis/cores dos assuntos (a RPC só retorna cat/n/pct).
+function mergeAtendimentoFromServer(supa){
+  if(!supa || !supa.periodos) return;
+  const ASSUNTO_META={
+    risco:{label:'Risco / churn',emoji:'⚠️',cor:'#f87171'},
+    tecnico:{label:'Suporte técnico',emoji:'🔧',cor:'#38bdf8'},
+    dificuldade:{label:'Dificuldade / dúvida',emoji:'🆘',cor:'#fb923c'},
+    prova:{label:'Prova social / resultado',emoji:'⭐',cor:'#34d399'},
+    compromisso:{label:'Compromisso / ativação',emoji:'💪',cor:'#8b7cf7'},
+    afetivo:{label:'Tom afetivo / vida pessoal',emoji:'❤️',cor:'#f472b6'},
+    outros:{label:'Outros / saudações',emoji:'💬',cor:'#475569'}
+  };
+  function enriqAssuntos(arr){
+    if(!arr||!arr.length) return [];
+    // Ordena por prioridade hierárquica (risco primeiro), mantendo apenas com n>0
+    const ord=['risco','tecnico','dificuldade','prova','compromisso','afetivo','outros'];
+    const byCat={}; arr.forEach(a=>{byCat[a.cat]=a;});
+    return ord.filter(c=>byCat[c]&&byCat[c].n>0).map(c=>{
+      const a=byCat[c], m=ASSUNTO_META[c]||{label:c,emoji:'•',cor:'#94a3b8'};
+      return {cat:c,label:m.label,emoji:m.emoji,cor:m.cor,n:a.n,pct:typeof a.pct==='number'?a.pct:parseFloat(a.pct)||0};
+    });
+  }
+  function adaptaPeriodo(p){
+    if(!p) return null;
+    return {
+      label:p.label,sublabel:p.sublabel,
+      disparos:p.disparos||0,respostas:p.respostas||0,
+      taxa_resp:parseFloat(p.taxa_resp)||0,
+      alunos_atendidos:p.alunos_atendidos||0,
+      disparos_por_aluno:parseFloat(p.disparos_por_aluno)||0,
+      msgs_aluno:p.msgs_aluno||0,msgs_tcs:p.msgs_tcs||0,
+      assuntos:enriqAssuntos(p.assuntos),
+      desafio:p.desafio||{pct_mencionou:0,n_mencionou:0,pct_engajou:0,n_engajou:0},
+      frases:p.frases||{},
+      ritmo:Array.isArray(p.ritmo)?p.ritmo:null,
+      heatmap:Array.isArray(p.heatmap)&&p.heatmap.length===24?p.heatmap:null
+    };
+  }
+  ATEND_SNAPSHOT.atualizado_em=supa.atualizado_em||ATEND_SNAPSHOT.atualizado_em;
+  ATEND_SNAPSHOT.inicio_projeto=supa.inicio_projeto||ATEND_SNAPSHOT.inicio_projeto;
+  ATEND_SNAPSHOT.meta_mensal=supa.meta_mensal||ATEND_SNAPSHOT.meta_mensal;
+  if(supa.alltime){
+    const a=supa.alltime;
+    ATEND_SNAPSHOT.alltime={
+      disparos:a.disparos||0,respostas:a.respostas||0,
+      taxa_resp:parseFloat(a.taxa_resp)||0,
+      alunos_atendidos:a.alunos_atendidos||0,
+      disparos_por_aluno:parseFloat(a.disparos_por_aluno)||0,
+      conversas_unicas:a.conversas_unicas||0,
+      dias_corridos:supa.dias_corridos||0,
+      meta_proporcional:a.meta_proporcional||0,
+      pct_meta:parseFloat(a.pct_meta)||0,
+      pace_diario:parseFloat(a.pace_diario)||0
+    };
+  }
+  if(supa.mes_atual){
+    const m=supa.mes_atual;
+    ATEND_SNAPSHOT.mes_atual={
+      label:m.label,disparos:m.disparos||0,
+      alunos_atendidos:m.alunos_atendidos||0,
+      dias_decorridos:m.dias_decorridos||0,
+      meta:m.meta||ATEND_SNAPSHOT.meta_mensal,
+      meta_proporcional:m.meta_proporcional||0,
+      pct_meta:parseFloat(m.pct_meta)||0,
+      projecao_fim_mes:m.projecao_fim_mes||0
+    };
+  }
+  const P=supa.periodos;
+  if(P.d7)         ATEND_SNAPSHOT.periodos.d7    = adaptaPeriodo(P.d7);
+  if(P.d8_14)      ATEND_SNAPSHOT.periodos.d8_14 = adaptaPeriodo(P.d8_14);
+  // SQL devolve "mes_fechado", o frontend usa chave "mai"
+  if(P.mes_fechado) ATEND_SNAPSHOT.periodos.mai  = adaptaPeriodo(P.mes_fechado);
+  // Re-renderiza se a aba já está visível
+  if(typeof renderAtendimento==='function'){
+    const ativa=document.getElementById('tab-atendimento');
+    if(ativa && ativa.classList.contains('active')) renderAtendimento();
+  }
+}
 
 function setAtendPeriodo(p,btn){
   ATEND_PERIODO_ATUAL=p;
