@@ -2505,9 +2505,11 @@ function renderAtendimento(){
   h+='<div style="font-size:12px;color:var(--t3);margin:-10px 0 14px">Cada conversa é classificada pelo assunto dominante (prioridade: risco → técnico → dificuldade → prova → elogios → acesso → engajamento com curso → compromisso → comunidade → afetivo → 🤖 resposta automática → saudação/sem assunto). Prova social = resultado real (arremate/leilão), não só a palavra. "Resposta automática" = bot do próprio aluno respondeu (não houve engajamento pessoal).</div>';
   h+='<div class="card" style="padding:18px 22px">';
   // Ordena por % desc com "outros" no fim (idempotente caso o snapshot já venha enriquecido)
-  const ORDEM_ASSUNTO={risco:1,tecnico:2,dificuldade:3,prova:4,elogios:5,automatico:6,acesso:7,engajamento_curso:8,compromisso:9,comunidade:10,afetivo:11,outros:12};
+  // Ordena por tamanho (maior → menor), mantendo "Saudação / sem assunto" (outros) sempre por último
   const assuntosOrd = [...p.assuntos].filter(a=>a.n>0).sort((a,b)=>{
-    return (ORDEM_ASSUNTO[a.cat]||99) - (ORDEM_ASSUNTO[b.cat]||99);
+    if(a.cat==='outros') return 1;
+    if(b.cat==='outros') return -1;
+    return b.pct - a.pct;
   });
   assuntosOrd.forEach(a=>{
     const tip='<div class=tt-title>'+a.emoji+' '+a.label+'</div><div class=tt-row><span class=tt-label>Conversas:</span><span class=tt-value>'+a.n+'</span></div><div class=tt-row><span class=tt-label>% do período:</span><span class=tt-value>'+a.pct.toFixed(1)+'%</span></div>';
