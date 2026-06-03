@@ -2323,7 +2323,7 @@ function mergeAtendimentoFromServer(supa){
     comunidade:{label:'Comunidade / grupo',emoji:'👥',cor:'#a78bfa'},
     afetivo:{label:'Tom afetivo / vida pessoal',emoji:'❤️',cor:'#f472b6'},
     automatico:{label:'Resposta automática (não engajou)',emoji:'🤖',cor:'#64748b'},
-    outros:{label:'Outros / saudações',emoji:'💬',cor:'#475569'}
+    outros:{label:'Saudação / sem assunto',emoji:'💬',cor:'#475569'}
   };
   function enriqAssuntos(arr){
     if(!arr||!arr.length) return [];
@@ -2502,14 +2502,12 @@ function renderAtendimento(){
 
   // === BLOCO Conversas por Assunto (hierárquico, 1 conv = 1 assunto) ===
   h+='<div class="sec">💬 Conversas por Assunto</div>';
-  h+='<div style="font-size:12px;color:var(--t3);margin:-10px 0 14px">Cada conversa é classificada pelo assunto dominante (prioridade: risco → técnico → dificuldade → prova → elogios → acesso → engajamento com curso → compromisso → comunidade → afetivo → 🤖 resposta automática → outros). Prova social = resultado real (arremate/leilão), não só a palavra. "Resposta automática" = bot do próprio aluno respondeu (não houve engajamento pessoal).</div>';
+  h+='<div style="font-size:12px;color:var(--t3);margin:-10px 0 14px">Cada conversa é classificada pelo assunto dominante (prioridade: risco → técnico → dificuldade → prova → elogios → acesso → engajamento com curso → compromisso → comunidade → afetivo → 🤖 resposta automática → saudação/sem assunto). Prova social = resultado real (arremate/leilão), não só a palavra. "Resposta automática" = bot do próprio aluno respondeu (não houve engajamento pessoal).</div>';
   h+='<div class="card" style="padding:18px 22px">';
   // Ordena por % desc com "outros" no fim (idempotente caso o snapshot já venha enriquecido)
+  const ORDEM_ASSUNTO={risco:1,tecnico:2,dificuldade:3,prova:4,elogios:5,automatico:6,acesso:7,engajamento_curso:8,compromisso:9,comunidade:10,afetivo:11,outros:12};
   const assuntosOrd = [...p.assuntos].filter(a=>a.n>0).sort((a,b)=>{
-    const sink=c=>c==='outros'?2:(c==='automatico'?1:0);
-    const sa=sink(a.cat), sb=sink(b.cat);
-    if(sa!==sb) return sa-sb;
-    return b.pct - a.pct;
+    return (ORDEM_ASSUNTO[a.cat]||99) - (ORDEM_ASSUNTO[b.cat]||99);
   });
   assuntosOrd.forEach(a=>{
     const tip='<div class=tt-title>'+a.emoji+' '+a.label+'</div><div class=tt-row><span class=tt-label>Conversas:</span><span class=tt-value>'+a.n+'</span></div><div class=tt-row><span class=tt-label>% do período:</span><span class=tt-value>'+a.pct.toFixed(1)+'%</span></div>';
