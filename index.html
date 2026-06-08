@@ -2363,6 +2363,7 @@ function mergeAtendimentoFromServer(supa){
   ATEND_SNAPSHOT.meta_mensal=supa.meta_mensal||ATEND_SNAPSHOT.meta_mensal;
   if(supa.funil) ATEND_SNAPSHOT.funil=supa.funil;
   if(supa.copys) ATEND_SNAPSHOT.copys=supa.copys;
+  if(supa.movimentacao) ATEND_SNAPSHOT.movimentacao=supa.movimentacao;
   if(supa.alltime){
     const a=supa.alltime;
     ATEND_SNAPSHOT.alltime={
@@ -2523,6 +2524,25 @@ function renderAtendimento(){
     h+='<div class="card"><h3>Onboarding</h3><div class="d">Disparos a quem comprou há ≤ 30 dias</div><div style="font-size:34px;font-weight:700;font-family:JetBrains Mono;color:var(--accent);margin-top:10px">'+fN(ob)+'</div><div style="color:var(--t2);font-size:13px">'+(base?(100*ob/base).toFixed(1):0)+'% (dos com data de compra)</div></div>';
     h+='<div class="card"><h3>Ongoing</h3><div class="d">Disparos a quem comprou há > 30 dias</div><div style="font-size:34px;font-weight:700;font-family:JetBrains Mono;color:var(--teal);margin-top:10px">'+fN(og)+'</div><div style="color:var(--t2);font-size:13px">'+(base?(100*og/base).toFixed(1):0)+'% (dos com data de compra)</div></div>';
     h+='</div>';
+  }
+
+  // === BLOCO Movimentação de Funil (real, do histórico Funil_Historico) ===
+  if(S.movimentacao && S.movimentacao.total_alunos>0){
+    const M=S.movimentacao;
+    h+='<div class="sec">🔄 Movimentação de Funil</div>';
+    if(M.comparaveis>0){
+      const mvCard=(emoji,titulo,valor,sub,cor)=>'<div class="card"><h3>'+emoji+' '+titulo+'</h3><div class="d">'+sub+'</div><div style="font-size:34px;font-weight:700;font-family:JetBrains Mono;color:'+cor+';margin-top:10px">'+fN(valor)+'</div></div>';
+      h+='<div class="card" style="margin-bottom:14px"><h3>Quem subiu no funil após os contatos</h3><div class="d">Compara o estágio inicial vs atual de cada aluno (aba Funil_Historico) · '+M.dias_distintos+' dia(s) de histórico · '+fN(M.comparaveis)+' alunos comparáveis</div></div>';
+      h+='<div class="g2">';
+      h+=mvCard('🚪','Saíram de "Nunca acessou"',M.saiu_nunca_acessou,'passaram a acessar depois das mensagens','var(--accent)');
+      h+=mvCard('📈','Subiram no funil',M.subiu,'avançaram de estágio (de '+fN(M.comparaveis)+')','var(--green)');
+      h+='</div><div class="g2" style="margin-top:14px">';
+      h+=mvCard('🏆','Chegaram em Engajado/Recompra',M.chegou_topo,'alcançaram o topo do funil','var(--teal)');
+      h+=mvCard('📉','Regrediram',M.caiu,'caíram de estágio — atenção','var(--red)');
+      h+='</div>';
+    } else {
+      h+='<div class="card" style="border:1px dashed var(--border);background:rgba(139,124,247,.04)"><div style="font-size:13px;color:var(--t2);line-height:1.6">🔄 Coletando histórico — já temos <strong style="color:var(--t1)">'+M.dias_distintos+' dia(s)</strong> de snapshot do funil ('+fN(M.total_alunos)+' alunos). A movimentação (quem subiu de estágio após os contatos) aparece quando houver pelo menos <strong style="color:var(--t1)">2 dias distintos</strong> pra comparar o estágio inicial vs atual.</div></div>';
+    }
   }
 
   // === BLOCO Conversas por Assunto (hierárquico, 1 conv = 1 assunto) ===
