@@ -2459,7 +2459,7 @@ function renderAtendimento(){
   h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Disparos</div><div class="kpi-v" style="color:var(--a2)">'+fN(p.disparos)+'</div><div class="kpi-s">mensagens enviadas (campanha)</div></div>';
   h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Respostas</div><div class="kpi-v" style="color:var(--cyan)">'+fN(p.respostas)+'</div><div class="kpi-s">alunos engajaram</div></div>';
   h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--green),var(--teal))"></div><div class="kpi-l">Taxa de resposta</div><div class="kpi-v" style="color:var(--green)">'+p.taxa_resp.toFixed(1)+'%</div><div class="kpi-s">respostas / disparos</div></div>';
-  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--gold),var(--orange))"></div><div class="kpi-l">Alunos atendidos</div><div class="kpi-v" style="color:var(--gold)">'+fN(p.alunos_atendidos)+'</div><div class="kpi-s">contatos únicos no período</div></div>';
+  // KPI "Alunos atendidos" removido a pedido
   h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--pink),var(--a2))"></div><div class="kpi-l">Disparos por aluno</div><div class="kpi-v" style="color:var(--pink)">'+p.disparos_por_aluno.toFixed(2)+'</div><div class="kpi-s">'+fN(p.disparos)+' disparos no período</div></div>';
   h+='</div>';
 
