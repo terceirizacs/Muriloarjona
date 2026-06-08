@@ -2493,14 +2493,35 @@ function renderAtendimento(){
   h+='<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10.5px;color:var(--t3);font-family:JetBrains Mono"><span>meta proporcional: '+fN(at.meta_proporcional)+'</span><span>'+fN(at.respostas)+' respostas · '+at.taxa_resp.toFixed(1)+'%</span></div></div>';
   h+='</div>';
 
-  // === BLOCO Campanha Desafio 30 Dias (transversal) ===
-  if(p.desafio && p.desafio.n_mencionou > 0){
-    h+='<div class="sec">🎯 Campanha · Desafio 30 Dias</div>';
+  // === BLOCO Disparos por Funil + Onboarding/Ongoing (por período + taxa de resposta) ===
+  const funilKeyMap={d7:'d7',d8_14:'d814',mai:'mai',custom:'all'};
+  const fKey=funilKeyMap[ATEND_PERIODO_ATUAL]||'all';
+  const F=(S.funil && S.funil[fKey] && S.funil[fKey].total>0)?S.funil[fKey]:null;
+  if(F){
+    const taxaGeral=F.total?(100*F.total_resp/F.total):0;
+    const notaCustom=(ATEND_PERIODO_ATUAL==='custom')?' · (intervalo custom mostra all-time)':'';
+    h+='<div class="sec">🎯 Disparos por Funil — '+p.label+'</div>';
+    h+='<div class="card"><h3>Para qual estágio do funil os disparos foram</h3><div class="d">Disparos (chatwoot) cruzados com o funil de cada aluno · '+fN(F.total)+' com e-mail identificado · <strong style="color:var(--green)">'+taxaGeral.toFixed(1)+'%</strong> dos disparos tiveram resposta do aluno no período'+notaCustom+'</div>';
+    h+='<div style="font-size:11px;color:var(--t3);margin:-4px 0 12px;line-height:1.5">ℹ️ Métrica do <strong>disparo</strong> (quem recebeu E respondeu no período). Difere da "Taxa de resposta" do topo, que conta toda conversa ativa no período sobre os disparos — por isso é maior.</div>';
+    const funilOrdem=['Nunca acessou','Acessou mas não consumiu','Em andamento','Concluído'];
+    const fcores={'Nunca acessou':'#f87171','Acessou mas não consumiu':'#fb923c','Em andamento':'#fbbf24','Concluído':'#34d399'};
+    const ents=Object.keys(F.por_funil||{}).map(k=>({k:k,d:(F.por_funil[k].d||0),r:(F.por_funil[k].r||0)})).sort((a,b)=>{
+      const ia=funilOrdem.indexOf(a.k), ib=funilOrdem.indexOf(b.k); return (ia<0?99:ia)-(ib<0?99:ib);
+    });
+    ents.forEach(e=>{
+      const pct=F.total?(100*e.d/F.total):0;
+      const taxa=e.d?(100*e.r/e.d):0;
+      const corTaxa=taxa>=40?'var(--green)':(taxa>=20?'var(--gold)':'var(--t3)');
+      h+='<div style="display:flex;align-items:center;gap:12px;margin:10px 0"><div style="width:200px;font-size:13px;color:var(--t1);font-weight:600">'+e.k+'</div>';
+      h+='<div style="flex:1;background:var(--track-bg);border-radius:8px;height:22px;overflow:hidden"><div style="height:100%;width:'+Math.max(pct,3).toFixed(1)+'%;min-width:46px;background:'+(fcores[e.k]||'#8b7cf7')+';display:flex;align-items:center;justify-content:flex-end;padding-right:10px;font-size:11px;color:#fff;font-weight:700;font-family:JetBrains Mono">'+pct.toFixed(1)+'%</div></div>';
+      h+='<div style="width:150px;text-align:right;font-size:11.5px;color:var(--t3);font-family:JetBrains Mono">'+fN(e.d)+' disp · <span style="color:'+corTaxa+'">'+taxa.toFixed(0)+'% resp</span></div></div>';
+    });
+    h+='</div>';
+    const ob=F.onboarding||0, og=F.ongoing||0, base=ob+og;
+    h+='<div class="sec">🚀 Onboarding vs Ongoing</div>';
     h+='<div class="g2">';
-    h+='<div class="card"><h3>Alcance da campanha</h3><div class="d">Conversas que mencionaram o Desafio</div>';
-    h+='<div style="display:flex;align-items:baseline;gap:8px;margin-top:8px"><div style="font-size:42px;font-weight:700;font-family:JetBrains Mono;color:var(--accent)">'+p.desafio.pct_mencionou.toFixed(1)+'%</div><div style="color:var(--t2);font-size:13px">('+p.desafio.n_mencionou+' conversas)</div></div></div>';
-    h+='<div class="card"><h3>Engajamento positivo</h3><div class="d">Quem mencionou e demonstrou compromisso ("vou fazer", "tô dentro")</div>';
-    h+='<div style="display:flex;align-items:baseline;gap:8px;margin-top:8px"><div style="font-size:42px;font-weight:700;font-family:JetBrains Mono;color:var(--green)">'+p.desafio.pct_engajou.toFixed(1)+'%</div><div style="color:var(--t2);font-size:13px">('+p.desafio.n_engajou+' de '+p.desafio.n_mencionou+')</div></div></div>';
+    h+='<div class="card"><h3>Onboarding</h3><div class="d">Disparos a quem comprou há ≤ 30 dias</div><div style="font-size:34px;font-weight:700;font-family:JetBrains Mono;color:var(--accent);margin-top:10px">'+fN(ob)+'</div><div style="color:var(--t2);font-size:13px">'+(base?(100*ob/base).toFixed(1):0)+'% (dos com data de compra)</div></div>';
+    h+='<div class="card"><h3>Ongoing</h3><div class="d">Disparos a quem comprou há > 30 dias</div><div style="font-size:34px;font-weight:700;font-family:JetBrains Mono;color:var(--teal);margin-top:10px">'+fN(og)+'</div><div style="color:var(--t2);font-size:13px">'+(base?(100*og/base).toFixed(1):0)+'% (dos com data de compra)</div></div>';
     h+='</div>';
   }
 
@@ -2569,6 +2590,26 @@ function renderAtendimento(){
     h+='</div></div>';
   }
 
+  // === BLOCO Copys do disparo (por período, por tipo) ===
+  const CPlist=(S.copys && S.copys[fKey] && S.copys[fKey].length)?S.copys[fKey]:null;
+  if(CPlist){
+    const CM={onboarding:{l:'Onboarding',e:'📨',c:'var(--accent)'},engajamento:{l:'Engajamento',e:'💪',c:'#34d399'},reabridor:{l:'Reabridor 24h',e:'🔓',c:'#fb923c'},renovacao:{l:'Renovação',e:'🔄',c:'#a78bfa'},outras:{l:'Outras mensagens',e:'💬',c:'#94a3b8'}};
+    const totEnv=CPlist.reduce((a,b)=>a+(+b.n||0),0);
+    h+='<div class="sec">✍️ Copys do disparo — '+p.label+'</div>';
+    h+='<div class="card"><h3>Estratégias de disparo do período</h3><div class="d">'+CPlist.length+' tipo(s) de mensagem · '+fN(totEnv)+' envios no total · copy = 1ª mensagem do disparo (nota privada do bot)</div>';
+    CPlist.forEach(cp=>{
+      const m=CM[cp.tipo]||{l:cp.tipo,e:'💬',c:'#94a3b8'};
+      h+='<div style="margin:14px 0;padding:14px 16px;background:rgba(255,255,255,.02);border-radius:10px;border-left:3px solid '+m.c+'">';
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">';
+      h+='<div style="font-weight:700;font-size:13px;color:var(--t1)">'+m.e+' '+m.l+'</div>';
+      h+='<div style="background:'+m.c+';color:#fff;font-family:JetBrains Mono;font-weight:700;font-size:11px;border-radius:8px;padding:3px 10px;white-space:nowrap">'+fN(cp.n)+' envios</div>';
+      h+='</div>';
+      h+='<div style="font-size:12.5px;color:var(--t2);line-height:1.55;white-space:pre-wrap">'+(cp.exemplo||'').replace(/</g,"&lt;")+'</div>';
+      h+='</div>';
+    });
+    h+='</div>';
+  }
+
   // === BLOCO Ritmo (gráfico de barras) ===
   if(p.ritmo && p.ritmo.length){
     h+='<div class="sec">📈 Ritmo diário</div>';
@@ -2609,58 +2650,6 @@ function renderAtendimento(){
       h+='</div>';
     }
     h+='</div></div>';
-  }
-
-  // === BLOCO Disparos por Funil + Onboarding/Ongoing (por período + taxa de resposta) ===
-  const funilKeyMap={d7:'d7',d8_14:'d814',mai:'mai',custom:'all'};
-  const fKey=funilKeyMap[ATEND_PERIODO_ATUAL]||'all';
-  const F=(S.funil && S.funil[fKey] && S.funil[fKey].total>0)?S.funil[fKey]:null;
-  if(F){
-    const taxaGeral=F.total?(100*F.total_resp/F.total):0;
-    const notaCustom=(ATEND_PERIODO_ATUAL==='custom')?' · (intervalo custom mostra all-time)':'';
-    h+='<div class="sec">🎯 Disparos por Funil — '+p.label+'</div>';
-    h+='<div class="card"><h3>Para qual estágio do funil os disparos foram</h3><div class="d">Disparos (chatwoot) cruzados com o funil de cada aluno · '+fN(F.total)+' com e-mail identificado · <strong style="color:var(--green)">'+taxaGeral.toFixed(1)+'%</strong> dos disparos tiveram resposta do aluno no período'+notaCustom+'</div>';
-    h+='<div style="font-size:11px;color:var(--t3);margin:-4px 0 12px;line-height:1.5">ℹ️ Métrica do <strong>disparo</strong> (quem recebeu E respondeu no período). Difere da "Taxa de resposta" do topo, que conta toda conversa ativa no período sobre os disparos — por isso é maior.</div>';
-    const funilOrdem=['Nunca acessou','Acessou mas não consumiu','Em andamento','Concluído'];
-    const fcores={'Nunca acessou':'#f87171','Acessou mas não consumiu':'#fb923c','Em andamento':'#fbbf24','Concluído':'#34d399'};
-    const ents=Object.keys(F.por_funil||{}).map(k=>({k:k,d:(F.por_funil[k].d||0),r:(F.por_funil[k].r||0)})).sort((a,b)=>{
-      const ia=funilOrdem.indexOf(a.k), ib=funilOrdem.indexOf(b.k); return (ia<0?99:ia)-(ib<0?99:ib);
-    });
-    ents.forEach(e=>{
-      const pct=F.total?(100*e.d/F.total):0;
-      const taxa=e.d?(100*e.r/e.d):0;
-      const corTaxa=taxa>=40?'var(--green)':(taxa>=20?'var(--gold)':'var(--t3)');
-      h+='<div style="display:flex;align-items:center;gap:12px;margin:10px 0"><div style="width:200px;font-size:13px;color:var(--t1);font-weight:600">'+e.k+'</div>';
-      h+='<div style="flex:1;background:var(--track-bg);border-radius:8px;height:22px;overflow:hidden"><div style="height:100%;width:'+Math.max(pct,3).toFixed(1)+'%;min-width:46px;background:'+(fcores[e.k]||'#8b7cf7')+';display:flex;align-items:center;justify-content:flex-end;padding-right:10px;font-size:11px;color:#fff;font-weight:700;font-family:JetBrains Mono">'+pct.toFixed(1)+'%</div></div>';
-      h+='<div style="width:150px;text-align:right;font-size:11.5px;color:var(--t3);font-family:JetBrains Mono">'+fN(e.d)+' disp · <span style="color:'+corTaxa+'">'+taxa.toFixed(0)+'% resp</span></div></div>';
-    });
-    h+='</div>';
-    const ob=F.onboarding||0, og=F.ongoing||0, base=ob+og;
-    h+='<div class="sec">🚀 Onboarding vs Ongoing</div>';
-    h+='<div class="g2">';
-    h+='<div class="card"><h3>Onboarding</h3><div class="d">Disparos a quem comprou há ≤ 30 dias</div><div style="font-size:34px;font-weight:700;font-family:JetBrains Mono;color:var(--accent);margin-top:10px">'+fN(ob)+'</div><div style="color:var(--t2);font-size:13px">'+(base?(100*ob/base).toFixed(1):0)+'% (dos com data de compra)</div></div>';
-    h+='<div class="card"><h3>Ongoing</h3><div class="d">Disparos a quem comprou há > 30 dias</div><div style="font-size:34px;font-weight:700;font-family:JetBrains Mono;color:var(--teal);margin-top:10px">'+fN(og)+'</div><div style="color:var(--t2);font-size:13px">'+(base?(100*og/base).toFixed(1):0)+'% (dos com data de compra)</div></div>';
-    h+='</div>';
-  }
-
-  // === BLOCO Copys do disparo (por período, por tipo) ===
-  const CPlist=(S.copys && S.copys[fKey] && S.copys[fKey].length)?S.copys[fKey]:null;
-  if(CPlist){
-    const CM={onboarding:{l:'Onboarding',e:'📨',c:'var(--accent)'},engajamento:{l:'Engajamento',e:'💪',c:'#34d399'},reabridor:{l:'Reabridor 24h',e:'🔓',c:'#fb923c'},renovacao:{l:'Renovação',e:'🔄',c:'#a78bfa'},outras:{l:'Outras mensagens',e:'💬',c:'#94a3b8'}};
-    const totEnv=CPlist.reduce((a,b)=>a+(+b.n||0),0);
-    h+='<div class="sec">✍️ Copys do disparo — '+p.label+'</div>';
-    h+='<div class="card"><h3>Estratégias de disparo do período</h3><div class="d">'+CPlist.length+' tipo(s) de mensagem · '+fN(totEnv)+' envios no total · copy = 1ª mensagem do disparo (nota privada do bot)</div>';
-    CPlist.forEach(cp=>{
-      const m=CM[cp.tipo]||{l:cp.tipo,e:'💬',c:'#94a3b8'};
-      h+='<div style="margin:14px 0;padding:14px 16px;background:rgba(255,255,255,.02);border-radius:10px;border-left:3px solid '+m.c+'">';
-      h+='<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">';
-      h+='<div style="font-weight:700;font-size:13px;color:var(--t1)">'+m.e+' '+m.l+'</div>';
-      h+='<div style="background:'+m.c+';color:#fff;font-family:JetBrains Mono;font-weight:700;font-size:11px;border-radius:8px;padding:3px 10px;white-space:nowrap">'+fN(cp.n)+' envios</div>';
-      h+='</div>';
-      h+='<div style="font-size:12.5px;color:var(--t2);line-height:1.55;white-space:pre-wrap">'+(cp.exemplo||'').replace(/</g,"&lt;")+'</div>';
-      h+='</div>';
-    });
-    h+='</div>';
   }
 
   // === Rodapé com fonte de dados ===
