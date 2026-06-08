@@ -708,7 +708,7 @@ function renderVisaoGeralCS(){
   fEtapas.forEach((name,i)=>{
     const q=fQtds[i], hh=Math.round(q/fMax*150), pc=total?q/total*100:0;
     const tip='<div class=tt-title>'+name+'</div><div class=tt-row><span class=tt-label>Alunos:</span><span class=tt-value>'+fN(q)+'</span></div><div class=tt-row><span class=tt-label>% da base:</span><span class=tt-value>'+pc.toFixed(1)+'%</span></div>';
-    h+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:default" onmouseenter="showTip(event,\''+tip.replace(/'/g,'')+'\')" onmousemove="showTip(event,\''+tip.replace(/'/g,'')+'\')" onmouseleave="hideTip()">';
+    h+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:default" onmouseenter="showTip(event,\''+tip.replace(/['"]/g,'')+'\')" onmousemove="showTip(event,\''+tip.replace(/['"]/g,'')+'\')" onmouseleave="hideTip()">';
     h+='<div style="font-size:11px;color:'+fCores[i]+';font-weight:700;font-family:JetBrains Mono">'+pc.toFixed(1)+'%</div>';
     h+='<div style="width:100%;height:'+Math.max(hh,4)+'px;background:'+fCores[i]+';border-radius:6px 6px 0 0;transition:height .4s"></div>';
     h+='</div>';
@@ -2539,7 +2539,7 @@ function renderAtendimento(){
   });
   assuntosOrd.forEach(a=>{
     const tip='<div class=tt-title>'+a.emoji+' '+a.label+'</div><div class=tt-row><span class=tt-label>Conversas:</span><span class=tt-value>'+a.n+'</span></div><div class=tt-row><span class=tt-label>% do período:</span><span class=tt-value>'+a.pct.toFixed(1)+'%</span></div>';
-    h+='<div style="display:flex;align-items:center;gap:12px;margin:10px 0;cursor:default" onmouseenter="showTip(event,\''+tip.replace(/'/g,'')+'\')" onmousemove="showTip(event,\''+tip.replace(/'/g,'')+'\')" onmouseleave="hideTip()">';
+    h+='<div style="display:flex;align-items:center;gap:12px;margin:10px 0;cursor:default" onmouseenter="showTip(event,\''+tip.replace(/['"]/g,'')+'\')" onmousemove="showTip(event,\''+tip.replace(/['"]/g,'')+'\')" onmouseleave="hideTip()">';
     h+='<div style="width:200px;font-size:13px;color:var(--t1);font-weight:600">'+a.emoji+' '+a.label+'</div>';
     h+='<div style="flex:1;background:var(--track-bg);border-radius:8px;height:22px;overflow:hidden">';
     // Garante largura mínima de 32px na barra pra caber % mesmo em valores baixos (1-3%)
@@ -2586,7 +2586,7 @@ function renderAtendimento(){
       const peso=600+Math.round(t*200);
       const cor=nuvCores[i%nuvCores.length];
       const tip='<div class=tt-title>☁️ '+x.w+'</div><div class=tt-row><span class=tt-label>Aparições:</span><span class=tt-value>'+fN(x.n)+'</span></div>';
-      h+='<span style="font-size:'+fs+'px;color:'+cor+';opacity:'+op+';font-weight:'+peso+';cursor:default" onmouseenter="showTip(event,\''+tip.replace(/'/g,'')+'\')" onmousemove="showTip(event,\''+tip.replace(/'/g,'')+'\')" onmouseleave="hideTip()">'+x.w+'</span>';
+      h+='<span style="font-size:'+fs+'px;color:'+cor+';opacity:'+op+';font-weight:'+peso+';cursor:default" onmouseenter="showTip(event,\''+tip.replace(/['"]/g,'')+'\')" onmousemove="showTip(event,\''+tip.replace(/['"]/g,'')+'\')" onmouseleave="hideTip()">'+x.w+'</span>';
     });
     h+='</div></div>';
   }
@@ -2657,12 +2657,12 @@ function renderAtendimento(){
   if(S.movimentacao && (S.movimentacao.recente || S.movimentacao.total)){
     const M=S.movimentacao;
     const fmtMD=(s)=>{ const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?(m[3]+'/'+m[2]):'—'; };
-    const QM=(tip)=>'<span style="cursor:help;width:15px;height:15px;border-radius:50%;border:1px solid var(--t3);color:var(--t3);font-size:9px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;margin-left:5px;flex:none" onmouseenter="showTip(event,\''+tip.replace(/'/g,'')+'\')" onmousemove="showTip(event,\''+tip.replace(/'/g,'')+'\')" onmouseleave="hideTip()">?</span>';
+    const QM=(tip)=>'<span style="cursor:help;width:15px;height:15px;border-radius:50%;border:1px solid var(--t3);color:var(--t3);font-size:9px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;margin-left:5px;flex:none" onmouseenter="showTip(event,\''+tip.replace(/['"]/g,'')+'\')" onmousemove="showTip(event,\''+tip.replace(/['"]/g,'')+'\')" onmouseleave="hideTip()">?</span>';
     const mvCard=(e,t,v,sub,c,tip)=>'<div class="card"><h3 style="display:inline-flex;align-items:center;flex-wrap:wrap">'+e+' '+t+QM(tip)+'</h3><div class="d">'+sub+'</div><div style="font-size:30px;font-weight:700;font-family:JetBrains Mono;color:'+c+';margin-top:8px">'+fN(v)+'</div></div>';
     const TS='<div class=tt-title>🚪 Saíram de "Nunca acessou"</div><div class=tt-row>Alunos que no 1º registro estavam em "Nunca acessou" e hoje já estão num estágio acima — passaram a acessar depois dos contatos da CS.</div>';
     const TU='<div class=tt-title>📈 Subiram no funil</div><div class=tt-row>Alunos que avançaram pelo menos um estágio na ordem do funil entre o 1º registro e hoje (ex.: Acessou → Engajado). Estão esquentando.</div>';
     const TT='<div class=tt-title>🏆 Chegaram em Engajado/Recompra</div><div class=tt-row>Alunos que alcançaram o topo do funil (Engajado ou Recompra) vindos de um estágio mais baixo. São os alvos de recompra e ascensão de produto.</div>';
-    const TA='<div class=tt-title>⚠️ Atenção</div><div class=tt-row>Alunos que voltaram pra trás no funil (ex.: Engajado → Desengajado, ou pararam de acessar). Estão esfriando — risco de churn e reembolso. É onde a CS deve agir primeiro.</div>';
+    const TA='<div class=tt-title>⚠️ Atenção</div><div class=tt-row>Alunos que voltaram um estágio no funil entre o 1º registro e hoje (ex.: Engajado → Desengajado, ou pararam de acessar). Merecem atenção da CS.</div>';
     const TRR='<div class=tt-title>Recorte: últimos 30 dias</div><div class=tt-row>CORTE: só alunos que receberam disparo nos últimos 30 dias. DADO: estágio do funil no 1º snapshot salvo vs o atual (aba Funil_Historico). "Comparáveis" = quantos já têm 2+ dias de histórico pra comparar.</div>';
     const TRT='<div class=tt-title>Recorte: total (desde o início)</div><div class=tt-row>CORTE: TODOS os alunos que já receberam disparo, em qualquer data — NÃO é a base inteira, só quem foi trabalhado pela CS. DADO: estágio do funil no 1º snapshot salvo vs o atual (aba Funil_Historico). "Comparáveis" = quantos já têm 2+ dias de histórico.</div>';
     const recorte=(titulo,R,sub,tipRec)=>{
@@ -2674,7 +2674,7 @@ function renderAtendimento(){
         x+=mvCard('📈','Subiram no funil',R.subiu,'avançaram na ordem do funil (ex.: Acessou → Engajado)','var(--green)',TU);
         x+='</div><div class="g2" style="margin-top:12px">';
         x+=mvCard('🏆','Chegaram em Engajado/Recompra',R.chegou_topo,'chegaram ao topo — alvos de recompra/ascensão','var(--teal)',TT);
-        x+=mvCard('⚠️','Atenção',R.caiu,'voltaram pra trás no funil (esfriaram) — risco de churn/reembolso','var(--red)',TA);
+        x+=mvCard('⚠️','Atenção',R.caiu,'voltaram um estágio no funil','var(--red)',TA);
         x+='</div>';
       } else { x+='<div style="font-size:12px;color:var(--t3);margin-top:8px">Ainda sem 2 dias distintos pra comparar — preenche conforme o histórico cresce.</div>'; }
       return x+'</div>';
@@ -2682,7 +2682,7 @@ function renderAtendimento(){
     const tipMov='<div class=tt-title>🔄 Movimentação de Funil</div><div class=tt-row>Foto diária do estágio do funil de cada aluno (aba Funil_Historico). Compara o 1º dia registrado vs hoje pra ver quem avançou ou recuou no funil. Só considera quem recebeu disparo.</div>';
     h+='<div class="sec" style="display:inline-flex;align-items:center;gap:8px">🔄 Movimentação de Funil'+QM(tipMov)+'</div>';
     h+='<div style="font-size:12px;color:var(--t3);margin:-6px 0 14px">📸 Base de comparação: 1º snapshot ('+fmtMD(M.baseline)+') → hoje ('+fmtMD(M.atual)+') · '+M.dias_distintos+' dia(s) de histórico salvos</div>';
-    h+='<div style="font-size:11.5px;color:var(--t3);margin:0 0 14px;line-height:1.55;padding:8px 12px;background:rgba(255,255,255,.02);border-radius:8px">📊 Ordem do funil: <b style="color:var(--t2)">Nunca acessou → Acessou → Consumiu → Engajado → Recompra</b>.<br><b style="color:var(--green)">Subir</b> = avançar nessa ordem (aluno esquentando) · <b style="color:var(--red)">Atenção</b> = voltar pra trás (aluno esfriando — risco de churn/reembolso, onde a CS deve agir).</div>';
+    h+='<div style="font-size:11.5px;color:var(--t3);margin:0 0 14px;line-height:1.55;padding:8px 12px;background:rgba(255,255,255,.02);border-radius:8px">📊 Ordem do funil: <b style="color:var(--t2)">Nunca acessou → Acessou → Consumiu → Engajado → Recompra</b>.<br><b style="color:var(--green)">Subir</b> = avançar nessa ordem (aluno esquentando) · <b style="color:var(--red)">Atenção</b> = voltar um estágio (aluno esfriando, merece atenção da CS).</div>';
     h+=recorte('Recente · últimos 30 dias',M.recente,'Alunos que receberam disparo nos últimos 30 dias',TRR);
     h+=recorte('Total · desde o início do acompanhamento',M.total,'Todos que já receberam disparo (qualquer data)',TRT);
     if((!M.recente||M.recente.comparaveis===0) && (!M.total||M.total.comparaveis===0)){
