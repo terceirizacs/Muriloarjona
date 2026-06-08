@@ -2663,11 +2663,11 @@ function renderAtendimento(){
       let x='<div class="card" style="margin-bottom:14px"><h3>'+titulo+'</h3><div class="d">'+sub+' · '+fN(R.comparaveis)+' alunos comparáveis</div>';
       if(R.comparaveis>0){
         x+='<div class="g2" style="margin-top:12px">';
-        x+=mvCard('🚪','Saíram de "Nunca acessou"',R.saiu_nunca_acessou,'passaram a acessar','var(--accent)');
-        x+=mvCard('📈','Subiram no funil',R.subiu,'avançaram de estágio','var(--green)');
+        x+=mvCard('🚪','Saíram de "Nunca acessou"',R.saiu_nunca_acessou,'nunca tinham acessado e passaram a acessar','var(--accent)');
+        x+=mvCard('📈','Subiram no funil',R.subiu,'avançaram na ordem do funil (ex.: Acessou → Engajado)','var(--green)');
         x+='</div><div class="g2" style="margin-top:12px">';
-        x+=mvCard('🏆','Chegaram em Engajado/Recompra',R.chegou_topo,'topo do funil','var(--teal)');
-        x+=mvCard('📉','Regrediram',R.caiu,'caíram de estágio','var(--red)');
+        x+=mvCard('🏆','Chegaram em Engajado/Recompra',R.chegou_topo,'chegaram ao topo — alvos de recompra/ascensão','var(--teal)');
+        x+=mvCard('📉','Regrediram',R.caiu,'voltaram pra trás no funil (esfriaram) — risco de churn/reembolso','var(--red)');
         x+='</div>';
       } else { x+='<div style="font-size:12px;color:var(--t3);margin-top:8px">Ainda sem 2 dias distintos pra comparar — preenche conforme o histórico cresce.</div>'; }
       return x+'</div>';
@@ -2675,6 +2675,7 @@ function renderAtendimento(){
     const tipMov='<div class=tt-title>🔄 Movimentação de Funil</div><div class=tt-row>Foto diária do estágio do funil de cada aluno. Compara o 1º dia registrado vs hoje pra ver quem AVANÇOU após os contatos da CS: saiu de Nunca acessou, subiu, chegou em Engajado/Recompra ou regrediu. Recorte recente = disparo nos últimos 30 dias; total = todos que já receberam disparo.</div>';
     h+='<div class="sec" style="display:inline-flex;align-items:center;gap:8px">🔄 Movimentação de Funil<span style="cursor:help;width:18px;height:18px;border-radius:50%;border:1px solid var(--t3);color:var(--t3);font-size:11px;display:inline-flex;align-items:center;justify-content:center;font-weight:700" onmouseenter="showTip(event,\''+tipMov.replace(/'/g,'')+'\')" onmousemove="showTip(event,\''+tipMov.replace(/'/g,'')+'\')" onmouseleave="hideTip()">?</span></div>';
     h+='<div style="font-size:12px;color:var(--t3);margin:-6px 0 14px">📸 Base de comparação: 1º snapshot ('+fmtMD(M.baseline)+') → hoje ('+fmtMD(M.atual)+') · '+M.dias_distintos+' dia(s) de histórico salvos</div>';
+    h+='<div style="font-size:11.5px;color:var(--t3);margin:0 0 14px;line-height:1.55;padding:8px 12px;background:rgba(255,255,255,.02);border-radius:8px">📊 Ordem do funil: <b style="color:var(--t2)">Nunca acessou → Acessou → Consumiu → Engajado → Recompra</b>.<br><b style="color:var(--green)">Subir</b> = avançar nessa ordem (aluno esquentando) · <b style="color:var(--red)">Regredir</b> = voltar pra trás (aluno esfriando — sinal de risco de churn/reembolso, onde a CS deve agir).</div>';
     h+=recorte('Recente · últimos 30 dias',M.recente,'Alunos que receberam disparo nos últimos 30 dias');
     h+=recorte('Total · desde o início do acompanhamento',M.total,'Todos que já receberam disparo');
     if((!M.recente||M.recente.comparaveis===0) && (!M.total||M.total.comparaveis===0)){
