@@ -2653,22 +2653,32 @@ function renderAtendimento(){
     h+='</div></div>';
   }
 
-  // === BLOCO Movimentação de Funil (real, do histórico Funil_Historico) ===
-  if(S.movimentacao && S.movimentacao.total_alunos>0){
+  // === BLOCO Movimentação de Funil (recente 30d + total desde início) ===
+  if(S.movimentacao && (S.movimentacao.recente || S.movimentacao.total)){
     const M=S.movimentacao;
-    h+='<div class="sec">🔄 Movimentação de Funil</div>';
-    if(M.comparaveis>0){
-      const mvCard=(emoji,titulo,valor,sub,cor)=>'<div class="card"><h3>'+emoji+' '+titulo+'</h3><div class="d">'+sub+'</div><div style="font-size:34px;font-weight:700;font-family:JetBrains Mono;color:'+cor+';margin-top:10px">'+fN(valor)+'</div></div>';
-      h+='<div class="card" style="margin-bottom:14px"><h3>Quem subiu no funil (alunos com disparo nos últimos 30 dias)</h3><div class="d">Compara o estágio inicial vs atual de cada aluno (aba Funil_Historico) · '+M.dias_distintos+' dia(s) de histórico · '+fN(M.comparaveis)+' alunos comparáveis (receberam disparo ≤ 30 dias)</div></div>';
-      h+='<div class="g2">';
-      h+=mvCard('🚪','Saíram de "Nunca acessou"',M.saiu_nunca_acessou,'passaram a acessar depois das mensagens','var(--accent)');
-      h+=mvCard('📈','Subiram no funil',M.subiu,'avançaram de estágio (de '+fN(M.comparaveis)+')','var(--green)');
-      h+='</div><div class="g2" style="margin-top:14px">';
-      h+=mvCard('🏆','Chegaram em Engajado/Recompra',M.chegou_topo,'alcançaram o topo do funil','var(--teal)');
-      h+=mvCard('📉','Regrediram',M.caiu,'caíram de estágio — atenção','var(--red)');
-      h+='</div>';
-    } else {
-      h+='<div class="card" style="border:1px dashed var(--border);background:rgba(139,124,247,.04)"><div style="font-size:13px;color:var(--t2);line-height:1.6">🔄 Coletando histórico — já temos <strong style="color:var(--t1)">'+M.dias_distintos+' dia(s)</strong> de snapshot do funil ('+fN(M.total_alunos)+' alunos). A movimentação (quem subiu de estágio após os contatos) aparece quando houver pelo menos <strong style="color:var(--t1)">2 dias distintos</strong> pra comparar o estágio inicial vs atual.</div></div>';
+    const fmtMD=(s)=>{ const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?(m[3]+'/'+m[2]):'—'; };
+    const mvCard=(e,t,v,sub,c)=>'<div class="card"><h3>'+e+' '+t+'</h3><div class="d">'+sub+'</div><div style="font-size:30px;font-weight:700;font-family:JetBrains Mono;color:'+c+';margin-top:8px">'+fN(v)+'</div></div>';
+    const recorte=(titulo,R,sub)=>{
+      if(!R || R.total===0) return '';
+      let x='<div class="card" style="margin-bottom:14px"><h3>'+titulo+'</h3><div class="d">'+sub+' · '+fN(R.comparaveis)+' alunos comparáveis</div>';
+      if(R.comparaveis>0){
+        x+='<div class="g2" style="margin-top:12px">';
+        x+=mvCard('🚪','Saíram de "Nunca acessou"',R.saiu_nunca_acessou,'passaram a acessar','var(--accent)');
+        x+=mvCard('📈','Subiram no funil',R.subiu,'avançaram de estágio','var(--green)');
+        x+='</div><div class="g2" style="margin-top:12px">';
+        x+=mvCard('🏆','Chegaram em Engajado/Recompra',R.chegou_topo,'topo do funil','var(--teal)');
+        x+=mvCard('📉','Regrediram',R.caiu,'caíram de estágio','var(--red)');
+        x+='</div>';
+      } else { x+='<div style="font-size:12px;color:var(--t3);margin-top:8px">Ainda sem 2 dias distintos pra comparar — preenche conforme o histórico cresce.</div>'; }
+      return x+'</div>';
+    };
+    const tipMov='<div class=tt-title>🔄 Movimentação de Funil</div><div class=tt-row>Foto diária do estágio do funil de cada aluno. Compara o 1º dia registrado vs hoje pra ver quem AVANÇOU após os contatos da CS: saiu de Nunca acessou, subiu, chegou em Engajado/Recompra ou regrediu. Recorte recente = disparo nos últimos 30 dias; total = todos que já receberam disparo.</div>';
+    h+='<div class="sec" style="display:inline-flex;align-items:center;gap:8px">🔄 Movimentação de Funil<span style="cursor:help;width:18px;height:18px;border-radius:50%;border:1px solid var(--t3);color:var(--t3);font-size:11px;display:inline-flex;align-items:center;justify-content:center;font-weight:700" onmouseenter="showTip(event,\''+tipMov.replace(/'/g,'')+'\')" onmousemove="showTip(event,\''+tipMov.replace(/'/g,'')+'\')" onmouseleave="hideTip()">?</span></div>';
+    h+='<div style="font-size:12px;color:var(--t3);margin:-6px 0 14px">📸 Base de comparação: 1º snapshot ('+fmtMD(M.baseline)+') → hoje ('+fmtMD(M.atual)+') · '+M.dias_distintos+' dia(s) de histórico salvos</div>';
+    h+=recorte('Recente · últimos 30 dias',M.recente,'Alunos que receberam disparo nos últimos 30 dias');
+    h+=recorte('Total · desde o início do acompanhamento',M.total,'Todos que já receberam disparo');
+    if((!M.recente||M.recente.comparaveis===0) && (!M.total||M.total.comparaveis===0)){
+      h+='<div class="card" style="border:1px dashed var(--border);background:rgba(139,124,247,.04)"><div style="font-size:13px;color:var(--t2);line-height:1.6">🔄 Coletando histórico — '+M.dias_distintos+' dia(s) salvos. A movimentação aparece com ≥2 dias distintos pra comparar o estágio inicial vs atual.</div></div>';
     }
   }
 
