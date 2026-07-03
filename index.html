@@ -1049,7 +1049,7 @@ function renderAll(filtered){
   const rows=filtered||ROWS;
   renderGeral(rows);
   renderTrilhas(rows);
-  renderAlunosList(rows);
+  renderAlunosList();
   renderFinanceiro();
   renderRenov(rows);
   renderPesquisa();
@@ -1266,10 +1266,51 @@ function renderTrilhas(rows){
 /* ===== ALUNOS ===== */
 let AL_PAGE=1,AL_SORT='total',AL_DIR=-1,AL_SEARCH='',AL_ROWS=[];
 
-function renderAlunosList(rows){
-  AL_ROWS=rows;AL_PAGE=1;
+// Fonte: planilha cs (Progresso do curso / Desafio 30 dias) — deduplicado por email.
+// A "Media" da aba Alunos agora reflete o Progresso (%) da plataforma (CS_ROWS/R_CS.PROG),
+// e não mais a média das trilhas FPRO (que ficava vazia p/ os alunos do Desafio).
+function renderAlunosList(){
+  const map=new Map();
+  (CS_ROWS||[]).forEach(r=>{
+    const email=r[R_CS.EMAIL]||'';
+    const prog=(typeof r[R_CS.PROG]==='number')?r[R_CS.PROG]:null;
+    const item={
+      nome: r[R_CS.NOME]||'',
+      email: email,
+      turma: r[R_CS.TURMA]||'',
+      produto: r[R_CS.PRODUTO]||'',
+      ultAcesso: r[R_CS.ULT_ACESSO]||null,
+      acessou: !!r[R_CS.ACESSOU],
+      statusClub: r[R_CS.STATUS_CLUB]||'',
+      total: prog
+    };
+    if(!email){ map.set('__'+map.size,item); return; }
+    const cur=map.get(email);
+    if(!cur){ map.set(email,item); return; }
+    // Manter o melhor progresso / acesso mais recente por aluno
+    const better=(item.total||0)>(cur.total||0) || (item.ultAcesso||0)>(cur.ultAcesso||0);
+    if(better) map.set(email,item);
+  });
+  AL_ROWS=[...map.values()];
+  AL_PAGE=1;
   mountAlunos();
   drawAlunos();
+}
+
+// Status do aluno no contexto CS (planilha cs) — usa Status Club + acesso
+function csStatusLabel(r){
+  const sc=(r.statusClub||'').toUpperCase();
+  if(sc.includes('BLOCK'))return 'Inativo';
+  if(!r.ultAcesso && !r.acessou)return 'Nunca acessou';
+  if(r.ultAcesso && (NOW-r.ultAcesso)>30*DAY)return 'Sem acessar +30d';
+  return 'Ativo';
+}
+function csStatusClass(r){
+  const sc=(r.statusClub||'').toUpperCase();
+  if(sc.includes('BLOCK'))return 'inativo';
+  if(!r.ultAcesso && !r.acessou)return 'nunca';
+  if(r.ultAcesso && (NOW-r.ultAcesso)>30*DAY)return 'sem30';
+  return 'ativo';
 }
 
 function mountAlunos(){
@@ -1306,13 +1347,13 @@ function drawAlunos(){
   const per=50,pages=Math.max(1,Math.ceil(list.length/per));
   if(AL_PAGE>pages)AL_PAGE=pages;
   const slice=list.slice((AL_PAGE-1)*per,AL_PAGE*per);
-  const stBadge=r=>{const c=statusClass(r);const l=statusLabel(r);return `<span class="det-status ${c}">${l}</span>`;};
+  const stBadge=r=>{const c=csStatusClass(r);const l=csStatusLabel(r);return `<span class="det-status ${c}">${l}</span>`;};
   const head=`<thead><tr>
     <th onclick="alSort('nome')">Aluno ${AL_SORT==='nome'?(AL_DIR>0?'&#9650;':'&#9660;'):''}</th>
     <th>Turma</th>
     <th>Status</th>
     <th onclick="alSort('ult')">Ultimo acesso ${AL_SORT==='ult'?(AL_DIR>0?'&#9650;':'&#9660;'):''}</th>
-    <th onclick="alSort('total')" style="text-align:right">Media ${AL_SORT==='total'?(AL_DIR>0?'&#9650;':'&#9660;'):''}</th>
+    <th onclick="alSort('total')" style="text-align:right">Progresso ${AL_SORT==='total'?(AL_DIR>0?'&#9650;':'&#9660;'):''}</th>
   </tr></thead>`;
   const body=`<tbody>${slice.map(r=>{
     const t=r.total||0;
