@@ -1271,7 +1271,9 @@ let AL_PAGE=1,AL_SORT='total',AL_DIR=-1,AL_SEARCH='',AL_ROWS=[];
 // e não mais a média das trilhas FPRO (que ficava vazia p/ os alunos do Desafio).
 function renderAlunosList(){
   const map=new Map();
-  (CS_ROWS||[]).forEach(r=>{
+  // Considerar SOMENTE o Desafio (produto contém "desafio") — progresso do Desafio
+  const csDesafio=(CS_ROWS||[]).filter(r=>norm(r[R_CS.PRODUTO]||'').includes('desafio'));
+  csDesafio.forEach(r=>{
     const email=r[R_CS.EMAIL]||'';
     const prog=(typeof r[R_CS.PROG]==='number')?r[R_CS.PROG]:null;
     const item={
@@ -1318,7 +1320,7 @@ function mountAlunos(){
   if(c.dataset.mounted==='1') return;
   c.dataset.mounted='1';
   c.innerHTML=`
-    <div class="sec">Alunos</div>
+    <div class="sec">Alunos · Desafio 30 dias</div>
     <div class="card">
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
         <input class="det-search" id="alSearchInput" placeholder="Buscar por nome, email ou turma..." oninput="alSearch(this.value)">
