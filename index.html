@@ -587,6 +587,17 @@ function initTip(){if(!_tip){_tip=document.createElement('div');_tip.className='
 function showTip(e,html){initTip();_tip.innerHTML=html;_tip.classList.add('show');const x=Math.min(e.clientX+14,window.innerWidth-300);const y=Math.max(e.clientY-60,8);_tip.style.left=x+'px';_tip.style.top=y+'px';}
 function hideTip(){if(_tip)_tip.classList.remove('show');}
 
+// Tooltip autocontido para os "?" de ajuda
+function helpQ(def){return '<span onmouseenter="hqShow(event,'+def+')" onmousemove="hqShow(event,'+def+')" onmouseleave="hqHide()" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;border:1px solid var(--t3);color:var(--t3);font-size:11px;font-weight:700;cursor:help;margin-left:8px;vertical-align:middle">?</span>';}
+var _HQT;function hqTip(){if(!_HQT){_HQT=document.createElement('div');_HQT.style.cssText='position:fixed;z-index:9999;pointer-events:none;background:rgba(15,15,15,.96);color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 14px;max-width:300px;font-size:12px;opacity:0;transition:opacity .15s;box-shadow:0 12px 40px rgba(0,0,0,.5)';document.body.appendChild(_HQT);}return _HQT;}
+function hqShow(e,html){var t=hqTip();t.innerHTML=html;t.style.opacity='1';t.style.left=Math.min(e.clientX+14,window.innerWidth-320)+'px';t.style.top=Math.max(e.clientY-60,8)+'px';}
+function hqHide(){if(_HQT)_HQT.style.opacity='0';}
+// Etapas reais do funil deste dash (coluna FUNIL da planilha cs)
+var FUNIL_DEF='<div style="font-weight:700;margin-bottom:6px">Como lemos a jornada</div><div style="font-size:11px;line-height:1.8;text-align:left"><b style=color:#f87171>Nunca acessou</b>: comprou mas nunca fez login na plataforma.<br><b style=color:#fb923c>Acessou mas não consumiu</b>: fez login, mas está com 0% de progresso.<br><b style=color:#fbbf24>Em andamento</b>: está consumindo o curso (progresso acima de 0% e abaixo de 100%).<br><b style=color:#34d399>Concluído</b>: completou o curso (100% de progresso).</div>';
+
+// hbar de inatividade em 5 faixas (padrão Tay Training)
+function inatHbar5(c0,c15,c31,c60,cN){var it=[['0-14 dias',c0,'var(--green)'],['15-30 dias',c15,'var(--gold)'],['31-60 dias',c31,'var(--orange)'],['>60 dias',c60,'var(--red)'],['Nunca acessou',cN,'var(--pink)']];var t=it.reduce(function(s,x){return s+x[1];},0);var mx=Math.max.apply(null,it.map(function(x){return x[1];}).concat([1]));var h='';it.forEach(function(x){var w=Math.max(Math.round(x[1]/mx*100),3);var p=t?(x[1]/t*100):0;h+='<div class="hbar-row"><span class="hbar-lbl">'+x[0]+'</span><div class="hbar-track"><div class="hbar-fill" style="width:'+w+'%;background:'+x[2]+'">'+fN(x[1])+'</div></div><span style="font-family:JetBrains Mono;font-weight:700;font-size:14px;color:var(--t3);min-width:56px;text-align:right">'+p.toFixed(1).replace(".",",")+" %"+'</span></div>';});return h;}
+
 /* ===== STATUS LOGIC ===== */
 // Ativo = dtFimAcesso NOT passed; Inativo = dtFimAcesso HAS passed
 // Sem acessar +30d = ultAcesso > 30 days ago; Nunca acessou = no ultAcesso
@@ -690,7 +701,7 @@ function renderVisaoGeralCS(){
   h+='</div>';
 
   // ── Funil (Jornada do Aluno) — estilo Bruno: g2 com barras verticais + Detalhamento ──
-  h+='<div class="sec">📊 Jornada do Aluno</div>';
+  h+='<div class="sec">📊 Jornada do Aluno'+helpQ('FUNIL_DEF')+'</div>';
   const fOrdMurilo=['Nunca acessou','Acessou mas não consumiu','Em andamento','Concluído'];
   const fColMurilo={'Nunca acessou':'#f87171','Acessou mas não consumiu':'#fb923c','Em andamento':'#fbbf24','Concluído':'#34d399'};
   const fBgMurilo={'Nunca acessou':'rgba(248,113,113,.12)','Acessou mas não consumiu':'rgba(251,146,60,.12)','Em andamento':'rgba(251,191,36,.12)','Concluído':'rgba(52,211,153,.12)'};
@@ -884,15 +895,10 @@ function renderEngajamentoCS(){
   });
   h+='</div></div>';
 
-  // Inatividade
-  h+='<div class="sec">⏱️ Dias sem Acesso</div>';
-  h+='<div class="card"><h3>Distribuição de inatividade</h3><div class="d">'+fN(diasInatividade.length)+' alunos com algum acesso</div>';
-  const inatCores=['var(--green)','var(--gold)','var(--orange)','var(--red)'];
-  const totalInat=diasInatividade.length||1;
-  Object.entries(inat).forEach(([k,v],i)=>{
-    const pc=totalInat>0?v/totalInat*100:0;
-    h+='<div class="hbar-row"><span class="hbar-lbl">'+k+'</span><div class="hbar-track"><div class="hbar-fill" style="width:'+Math.max(pc,2).toFixed(0)+'%;background:'+inatCores[i]+'">'+(pc>10?fN(v)+' ('+rd(pc)+'%)':'')+'</div></div>'+(pc<=10?'<span style="font-family:JetBrains Mono;font-size:13px;font-weight:600;color:var(--t2);margin-left:8px">'+fN(v)+' ('+rd(pc)+'%)</span>':'')+'</div>';
-  });
+  // Inatividade (hbar de 5 faixas — padrão Tay Training)
+  h+='<div class="sec">⏱️ Inatividade</div>';
+  h+='<div class="card"><h3>Inatividade</h3><div class="d">Dias desde o último acesso</div>';
+  h+='<div class="hbar-area">'+inatHbar5(inat['0-14d'],inat['15-30d'],inat['31-60d'],inat['>60d'],nuncaAcessou)+'</div>';
   h+='</div>';
 
   // Insights
