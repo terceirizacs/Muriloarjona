@@ -585,7 +585,10 @@ var _HQT;function hqTip(){if(!_HQT){_HQT=document.createElement('div');_HQT.styl
 function hqShow(e,html){var t=hqTip();t.innerHTML=html;t.style.opacity='1';t.style.left=Math.min(e.clientX+14,window.innerWidth-320)+'px';t.style.top=Math.max(e.clientY-60,8)+'px';}
 function hqHide(){if(_HQT)_HQT.style.opacity='0';}
 // Etapas reais do funil deste dash (coluna FUNIL da planilha cs)
-var FUNIL_DEF='<div style="font-weight:700;margin-bottom:6px">Como lemos a jornada</div><div style="font-size:11px;line-height:1.8;text-align:left"><b style=color:#f87171>Nunca acessou</b>: comprou mas nunca fez login na plataforma.<br><b style=color:#fb923c>Acessou mas não consumiu</b>: fez login, mas está com 0% de progresso.<br><b style=color:#fbbf24>Em andamento</b>: está consumindo o curso (progresso acima de 0% e abaixo de 100%).<br><b style=color:#34d399>Concluído</b>: completou o curso (100% de progresso).</div>';
+// Legenda dinâmica: só as etapas que existem na coluna Funil Calculado da planilha
+const FUNIL_DESC={'Nunca acessou':'comprou mas nunca fez login na plataforma.','Acessou mas não consumiu':'fez login, mas está com 0% de progresso.','Consumiu pouco':'progresso baixo e +30 dias sem acessar.','Em andamento':'está consumindo o curso (progresso acima de 0% e abaixo de 100%).','Desengajado':'já teve progresso, mas está +30 dias sem acessar.','Engajado':'acessou nos últimos 30 dias.','Recompra':'progresso alto (perfil que costuma renovar).','Concluído':'completou o curso (100% de progresso).','Verificar':'progresso ausente / a checar.'};
+function buildFunilDef(ord,cores){return '<div style="font-weight:700;margin-bottom:6px">Como lemos a jornada</div><div style="font-size:11px;line-height:1.8;text-align:left">'+ord.map((f,i)=>'<b style="color:'+((cores&&cores[i])||'#8b7cf7')+'">'+f+'</b>: '+(FUNIL_DESC[f]||'etapa criada na planilha (sem descrição cadastrada).')).join('<br>')+'</div>';}
+var FUNIL_DEF=buildFunilDef(['Nunca acessou','Acessou mas não consumiu','Desengajado','Engajado','Recompra'],['#f87171','#fb923c','#f472b6','#2dd4bf','#38bdf8']);
 
 // hbar de inatividade em 5 faixas (padrão Tay Training)
 function inatHbar5(c0,c15,c31,c60,cN){var it=[['0-14 dias',c0,'var(--green)'],['15-30 dias',c15,'var(--gold)'],['31-60 dias',c31,'var(--orange)'],['>60 dias',c60,'var(--red)'],['Nunca acessou',cN,'var(--pink)']];var t=it.reduce(function(s,x){return s+x[1];},0);var mx=Math.max.apply(null,it.map(function(x){return x[1];}).concat([1]));var h='';it.forEach(function(x){var w=Math.max(Math.round(x[1]/mx*100),3);var p=t?(x[1]/t*100):0;h+='<div class="hbar-row"><span class="hbar-lbl">'+x[0]+'</span><div class="hbar-track"><div class="hbar-fill" style="width:'+w+'%;background:'+x[2]+'">'+fN(x[1])+'</div></div><span style="font-family:JetBrains Mono;font-weight:700;font-size:14px;color:var(--t3);min-width:56px;text-align:right">'+p.toFixed(1).replace(".",",")+" %"+'</span></div>';});return h;}
@@ -694,15 +697,17 @@ function renderVisaoGeralCS(){
 
   // ── Funil (Jornada do Aluno) — estilo Bruno: g2 com barras verticais + Detalhamento ──
   h+='<div class="sec">📊 Jornada do Aluno'+helpQ('FUNIL_DEF')+'</div>';
-  const fOrdMurilo=['Nunca acessou','Acessou mas não consumiu','Em andamento','Concluído'];
-  const fColMurilo={'Nunca acessou':'#f87171','Acessou mas não consumiu':'#fb923c','Em andamento':'#fbbf24','Concluído':'#34d399'};
-  const fBgMurilo={'Nunca acessou':'rgba(248,113,113,.12)','Acessou mas não consumiu':'rgba(251,146,60,.12)','Em andamento':'rgba(251,191,36,.12)','Concluído':'rgba(52,211,153,.12)'};
+  // Ordem canônica; só aparecem as etapas que existem na coluna Funil Calculado da planilha (etapa nova entra no fim)
+  const fOrdMurilo=['Nunca acessou','Acessou mas não consumiu','Consumiu pouco','Em andamento','Desengajado','Engajado','Recompra','Concluído','Verificar'];
+  const fColMurilo={'Nunca acessou':'#f87171','Acessou mas não consumiu':'#fb923c','Consumiu pouco':'#fbbf24','Em andamento':'#fbbf24','Desengajado':'#f472b6','Engajado':'#2dd4bf','Recompra':'#38bdf8','Concluído':'#34d399','Verificar':'#94a3b8'};
+  const fBgMurilo={'Nunca acessou':'rgba(248,113,113,.12)','Acessou mas não consumiu':'rgba(251,146,60,.12)','Consumiu pouco':'rgba(251,191,36,.12)','Em andamento':'rgba(251,191,36,.12)','Desengajado':'rgba(244,114,182,.12)','Engajado':'rgba(45,212,191,.12)','Recompra':'rgba(56,189,248,.12)','Concluído':'rgba(52,211,153,.12)','Verificar':'rgba(255,255,255,.06)'};
   const funilCores=['var(--accent)','var(--a2)','var(--teal)','var(--green)','var(--orange)','var(--gold)','var(--sky)','var(--cyan)','var(--pink)','var(--red)'];
   // Monta lista na ordem do funil, ou caso encontre etapas fora dela, adiciona ao fim
   const funilEntriesAll=Object.entries(funilMap);
   const fEtapas=[], fQtds=[], fCores=[], fBgs=[];
   fOrdMurilo.forEach(name=>{if(funilMap[name]!==undefined&&funilMap[name]>0){fEtapas.push(name);fQtds.push(funilMap[name]);fCores.push(fColMurilo[name]);fBgs.push(fBgMurilo[name]);}});
   funilEntriesAll.forEach(([k,v],i)=>{if(!fOrdMurilo.includes(k)&&v>0){fEtapas.push(k);fQtds.push(v);const c=funilCores[(fEtapas.length-1)%funilCores.length];fCores.push(c);fBgs.push('rgba(139,124,247,.12)');}});
+  FUNIL_DEF=buildFunilDef(fEtapas,fCores);
   const fMax=Math.max(...fQtds,1);
   h+='<div class="g2">';
   // Card 1: gráfico de barras verticais
