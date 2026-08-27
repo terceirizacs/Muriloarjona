@@ -408,16 +408,43 @@ function doLogin(){
 }
 
 
-/* ===== DATA LOADING (com cache localStorage + retry) ===== */
-const CACHE_KEY='murilo_dash_v2';
-const CACHE_TTL_MS=10*60*1000; // 10 min
-function getCached(){
-  try{const raw=localStorage.getItem(CACHE_KEY);if(!raw)return null;
-    const {ts,data}=JSON.parse(raw);if(Date.now()-ts>CACHE_TTL_MS)return null;return {ts,data};
+/* ===== DATA LOADING (cache IndexedDB + retry) =====
+   O payload passa de 5MB, então localStorage nunca conseguia guardar (setItem falhava em silêncio)
+   e toda abertura esperava o GAS inteiro. IndexedDB não tem esse limite: mostra o último dado
+   na hora e atualiza em background quando o GAS responde. */
+const CACHE_KEY='murilo_dash_v3';
+const CACHE_TTL_MS=24*60*60*1000; // 24h: exibe o cache e busca fresco em background
+const CACHE_DB='murilo_dash_db', CACHE_STORE='kv';
+try{localStorage.removeItem('murilo_dash_v2');}catch(e){}
+function idbOpen_(){
+  return new Promise((res,rej)=>{
+    try{
+      const q=indexedDB.open(CACHE_DB,1);
+      q.onupgradeneeded=()=>{q.result.createObjectStore(CACHE_STORE);};
+      q.onsuccess=()=>res(q.result);
+      q.onerror=()=>rej(q.error);
+    }catch(e){rej(e);}
+  });
+}
+async function getCached(){
+  try{
+    const db=await idbOpen_();
+    return await new Promise((res,rej)=>{
+      const rq=db.transaction(CACHE_STORE,'readonly').objectStore(CACHE_STORE).get(CACHE_KEY);
+      rq.onsuccess=()=>{const v=rq.result;if(!v||!v.data||(Date.now()-v.ts)>CACHE_TTL_MS)return res(null);res(v);};
+      rq.onerror=()=>rej(rq.error);
+    });
   }catch(e){return null;}
 }
-function setCached(data){
-  try{localStorage.setItem(CACHE_KEY,JSON.stringify({ts:Date.now(),data}));}catch(e){}
+async function setCached(data){
+  try{
+    const db=await idbOpen_();
+    await new Promise((res,rej)=>{
+      const tx=db.transaction(CACHE_STORE,'readwrite');
+      tx.objectStore(CACHE_STORE).put({ts:Date.now(),data},CACHE_KEY);
+      tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);
+    });
+  }catch(e){}
 }
 async function fetchComRetry(url,tentativas=3){
   let ultimoErro;
@@ -437,8 +464,10 @@ async function fetchComRetry(url,tentativas=3){
 async function loadData(){
   try{
     // 1) Carrega do cache imediatamente (instantâneo)
-    const cached=getCached();
+    const cached=await getCached();
+    let usouCache=false;
     if(cached){
+      usouCache=true;
       aplicarDados(cached.data);
       const min=Math.round((Date.now()-cached.ts)/60000);
       // mantém loading invisível e mostra dados
@@ -452,19 +481,37 @@ async function loadData(){
     setCached(D);
     aplicarDados(D);
   }catch(e){
-    if(getCached()){console.warn('Erro ao atualizar, mantendo cache:',e.message);return;}
+    if(usouCache){console.warn('Erro ao atualizar, mantendo cache:',e.message);return;}
     document.getElementById('loadingOverlay').innerHTML='<div style="color:var(--red);padding:40px;text-align:center;font-size:18px;max-width:500px"><div style="font-size:48px;margin-bottom:16px">!</div>Erro ao carregar dados:<br><br><span style="font-family:JetBrains Mono;font-size:14px">'+e.message+'</span><br><br><button onclick="loadData()" style="padding:12px 24px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-size:14px;cursor:pointer;margin-top:8px">Tentar novamente</button></div>';
   }
 }
 
+// Expande linhas-array [v0,v1,...] em objetos usando a lista de chaves enviada pelo GAS (fproK/trilhasK/pesquisaK).
+// Se o GAS ainda mandar objetos (formato antigo), devolve como está.
+function expandRows_(keys,rows){
+  rows=rows||[];
+  if(!keys||!rows.length||!Array.isArray(rows[0]))return rows;
+  return rows.map(a=>{const ob={};for(let i=0;i<keys.length;i++)ob[keys[i]]=a[i];return ob;});
+}
+function expandAoVivo_(D){
+  const S=D.aoVivoS, P=D.aoVivo||[];
+  if(!S||!P.length||!Array.isArray(P[0]))return P;
+  return P.map(a=>{const sx=S[a[0]]||{};return {
+    arquivoFonte:sx.arquivoFonte,topico:sx.topico,palestrante:sx.palestrante,tipoAula:sx.tipoAula,
+    dtInicio:sx.dtInicio,dtFim:sx.dtFim,dtChave:sx.dtChave,duracaoReuniao:sx.duracaoReuniao,
+    nomeParticipante:a[1],emailParticipante:a[2],ingressou:a[3],saiu:a[4],duracao:a[5]};});
+}
 function aplicarDados(D){
   try{
-    FPRO=D.fpro||[];
+    FPRO=expandRows_(D.fproK,D.fpro);
     MCMV=D.mcmv||[];
-    TRILHA_DATA=D.trilhas||[];
     TRILHAS=D.trilhaNames||[];
-    PESQ=D.pesquisa||[];
-    AV=D.aoVivo||[];
+    TRILHA_DATA=expandRows_(D.trilhasK,D.trilhas).map(t=>{
+      if(Array.isArray(t.trilhas)){const ob={};TRILHAS.forEach((n,i)=>{ob[n]=t.trilhas[i];});t.trilhas=ob;}
+      return t;
+    });
+    PESQ=expandRows_(D.pesquisaK,D.pesquisa);
+    AV=expandAoVivo_(D);
     AV_AULAS=D.aoVivoAulas||[];
     NOW=D.todayMs||Date.now();
     // Planilha CS (Desafio 30 dias + Engajamento)
@@ -492,7 +539,7 @@ function aplicarDados(D){
       if(t.email) trilhaMap.set(t.email.toLowerCase(),t);
     });
 
-    window._TRILHAS_RAW=D.trilhas||[];
+    window._TRILHAS_RAW=TRILHA_DATA;
     ROWS=FPRO.map(f=>{
       const tr=trilhaMap.get(f.email)||trilhaMap.get(f.email2)||null;
       return {
