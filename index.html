@@ -667,7 +667,7 @@ function renderVisaoGeralCS(){
 
   // ── Agregações ──
   let ativos=0,bloqueados=0,acessou=0,nuncaAcessou=0;
-  const somaProg=[],somaAulas=[];
+  const somaProg=[],somaAulas=[],somaAcessos=[];
   const funilMap={},produtoMap={},turmaMap={},tipoMap={},renovouMap={};
   rows.forEach(r=>{
     const sc=r[R_CS.STATUS_CLUB];
@@ -675,6 +675,7 @@ function renderVisaoGeralCS(){
     if(r[R_CS.ACESSOU])acessou++; else nuncaAcessou++;
     if(typeof r[R_CS.PROG]==='number')somaProg.push(r[R_CS.PROG]);
     if(typeof r[R_CS.AULAS]==='number')somaAulas.push(r[R_CS.AULAS]);
+    const qa=r[R_CS.QTD_ACESSOS]; if(typeof qa==='number'&&qa>0)somaAcessos.push(qa);
     const f=r[R_CS.FUNIL]||'—';funilMap[f]=(funilMap[f]||0)+1;
     const p=r[R_CS.PRODUTO]||'—';produtoMap[p]=(produtoMap[p]||0)+1;
     const t=r[R_CS.TURMA]||'(sem turma)';turmaMap[t]=(turmaMap[t]||0)+1;
@@ -682,6 +683,7 @@ function renderVisaoGeralCS(){
     const rv=r[R_CS.RENOVOU]||'(sem info)';renovouMap[rv]=(renovouMap[rv]||0)+1;
   });
   const avgProg=somaProg.length?somaProg.reduce((a,b)=>a+b,0)/somaProg.length:0;
+  const avgAcessos=somaAcessos.length?somaAcessos.reduce((a,b)=>a+b,0)/somaAcessos.length:0;
   const pctAtivos=total>0?ativos/total*100:0;
   const pctAcessou=total>0?acessou/total*100:0;
   const pctNunca=total>0?nuncaAcessou/total*100:0;
@@ -690,7 +692,7 @@ function renderVisaoGeralCS(){
   let h='';
   h+='<div class="kpis kpis-vg" id="kpisVG">';
   h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--accent),var(--a2))"></div><div class="kpi-l">Total Alunos</div><div class="kpi-v" style="color:var(--a2)">'+fN(total)+'</div></div>';
-  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Acessaram</div><div class="kpi-v" style="color:var(--cyan)">'+fN(acessou)+'</div><div class="kpi-s">'+rd(pctAcessou)+'% da base</div></div>';
+  h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--sky),var(--cyan))"></div><div class="kpi-l">Média de Acessos</div><div class="kpi-v" style="color:var(--cyan)">'+rd(avgAcessos).toLocaleString('pt-BR')+'</div><div class="kpi-s">dias com acesso por aluno · '+fN(somaAcessos.length)+' com registro</div></div>';
   h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--red),var(--pink))"></div><div class="kpi-l">Nunca Acessaram</div><div class="kpi-v" style="color:var(--red)">'+fN(nuncaAcessou)+'</div><div class="kpi-s">'+rd(pctNunca)+'% da base</div></div>';
   h+='<div class="kpi"><div class="kpi-bar" style="background:linear-gradient(90deg,var(--gold),var(--orange))"></div><div class="kpi-l">Progresso Médio</div><div class="kpi-v" style="color:var(--gold)">'+rd(avgProg)+'%</div><div class="kpi-s">média do curso</div></div>';
   h+='</div>';
@@ -1287,6 +1289,7 @@ function renderAlunosList(){
       ultAcesso: r[R_CS.ULT_ACESSO]||null,
       acessou: !!r[R_CS.ACESSOU],
       statusClub: r[R_CS.STATUS_CLUB]||'',
+      acessos: (typeof r[R_CS.QTD_ACESSOS]==='number')?r[R_CS.QTD_ACESSOS]:0,
       total: prog
     };
     if(!email){ map.set('__'+map.size,item); return; }
@@ -1294,7 +1297,9 @@ function renderAlunosList(){
     if(!cur){ map.set(email,item); return; }
     // Manter o melhor progresso / acesso mais recente por aluno
     const better=(item.total||0)>(cur.total||0) || (item.ultAcesso||0)>(cur.ultAcesso||0);
+    const acMax=Math.max(item.acessos||0,cur.acessos||0);
     if(better) map.set(email,item);
+    map.get(email).acessos=acMax;
   });
   AL_ROWS=[...map.values()];
   AL_PAGE=1;
@@ -1346,6 +1351,7 @@ function drawAlunos(){
     let av,bv;
     if(AL_SORT==='nome'){av=norm(a.nome);bv=norm(b.nome);return av<bv?-AL_DIR:av>bv?AL_DIR:0;}
     if(AL_SORT==='ult'){av=a.ultAcesso||0;bv=b.ultAcesso||0;}
+    else if(AL_SORT==='acessos'){av=a.acessos||0;bv=b.acessos||0;}
     else{av=a.total||0;bv=b.total||0;}
     return (av-bv)*AL_DIR;
   });
@@ -1358,6 +1364,7 @@ function drawAlunos(){
     <th>Turma</th>
     <th>Status</th>
     <th onclick="alSort('ult')">Ultimo acesso ${AL_SORT==='ult'?(AL_DIR>0?'&#9650;':'&#9660;'):''}</th>
+    <th onclick="alSort('acessos')" style="text-align:right">Acessos ${AL_SORT==='acessos'?(AL_DIR>0?'&#9650;':'&#9660;'):''}</th>
     <th onclick="alSort('total')" style="text-align:right">Progresso ${AL_SORT==='total'?(AL_DIR>0?'&#9650;':'&#9660;'):''}</th>
   </tr></thead>`;
   const body=`<tbody>${slice.map(r=>{
@@ -1368,6 +1375,7 @@ function drawAlunos(){
       <td style="font-size:12px">${r.turma||'-'}</td>
       <td>${stBadge(r)}</td>
       <td style="font-family:JetBrains Mono;font-size:12px">${fmt(r.ultAcesso)}</td>
+      <td style="text-align:right;font-family:JetBrains Mono;font-weight:700;color:${(r.acessos||0)>0?'var(--cyan)':'var(--t3)'}">${fN(r.acessos||0)}</td>
       <td style="text-align:right"><div class="det-prog"><div class="det-prog-bar"><div class="det-prog-fill" style="width:${Math.min(t,100)}%;background:${color}"></div></div><span style="font-family:JetBrains Mono;font-weight:700;color:${color};min-width:50px;text-align:right">${fP(t)}</span></div></td>
     </tr>`;
   }).join('')}</tbody>`;
